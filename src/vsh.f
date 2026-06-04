@@ -460,6 +460,46 @@ C     Compute log(factorial()) for stability
             END IF
         END FUNCTION LOG_FACT
 
+C     Compute Gauss-Legendre quadrature nodes and weights for exact
+C     integration of degree <= 2*LMAX+1 using LMAX+1 points.
+C     ZERO(i): GL nodes as cos(theta), ordered from -1 to +1.
+C     W(i)   : corresponding weights for integral int_{-1}^{1} f(x) dx.
+C     Nodes are zeros of P_{LMAX+1}(x); weights via w=2/((1-x^2)*P'(x)^2).
+C     Newton iteration converges to machine precision in <10 steps.
+        SUBROUTINE SHGLQ(ZERO, W, LMAX)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(OUT) :: ZERO(LMAX+1)
+        REAL(KIND=dp),    INTENT(OUT) :: W(LMAX+1)
+        INTEGER(KIND=i4) :: N, I, J, K, NHALF
+        REAL(KIND=dp)    :: X, P0, P1, P2, DPN, DX, TOL
+        TOL = 1.0e-15_dp
+
+        N     = LMAX + 1
+        NHALF = (N + 1) / 2
+
+        DO I = 1, NHALF
+          X = DCOS(pi * (I - 0.25_dp) / (N + 0.5_dp))
+          DO J = 1, 100
+            P0 = 1.0_dp
+            P1 = X
+            DO K = 2, N
+              P2  = ((2*K - 1) * X * P1 - (K-1) * P0) / K
+              P0  = P1
+              P1  = P2
+            END DO
+            DPN = N * (P0 - X * P1) / (1.0_dp - X**2)
+            DX  = P1 / DPN
+            X   = X - DX
+            IF (ABS(DX) .LE. TOL) EXIT
+          END DO
+          ZERO(I)         = -X
+          ZERO(N + 1 - I) =  X
+          W(I)            = 2.0_dp / ((1.0_dp - X**2) * DPN**2)
+          W(N + 1 - I)    = W(I)
+        END DO
+        END SUBROUTINE SHGLQ
+
 C     Compute Wigner 3j symbol
         FUNCTION SYMBOL3J(J1,M1,J2,M2,J3,M3)
         IMPLICIT NONE
@@ -585,6 +625,77 @@ C     DP_OUT indexed by PLM_INDEX(l,m); returns 0 at poles (|x|>=1)
         END DO
         END SUBROUTINE DDX_ASSOC_LEGENDRE_ALL
 
+C     Compute all 4pi-normalized P_l^m(cos theta) for 0<=l<=lmax, 0<=m<=l
+C     using the Holmes & Featherstone (2002) modified forward-column recurrence.
+C     Normalization N_lm = sqrt((2l+1)/(4pi)*(l-m)!/(l+m)!) is folded into
+C     the recurrence coefficients, keeping all intermediates O(1/sqrt(4pi))
+C     and extending numerical stability to l~2700 vs ~1400 for Bonnet.
+C     PNORM indexed by PLM_INDEX(l,m); output size (lmax+1)*(lmax+2)/2.
+        SUBROUTINE ASSOC_LEGENDRE_NORM_ALL(PNORM, LMAX, X)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: X
+        REAL(KIND=dp),    INTENT(OUT) :: PNORM((LMAX+1)*(LMAX+2)/2)
+        INTEGER(KIND=i4) :: L, M
+        REAL(KIND=dp)    :: SINTH
+
+        SINTH = SQRT((1.0_dp - X) * (1.0_dp + X))
+
+        PNORM(PLM_INDEX(0, 0)) = 1.0_dp / DSQRT(4.0_dp*pi)
+
+        DO M = 0, LMAX
+          IF (M .GT. 0)
+     &      PNORM(PLM_INDEX(M, M)) =
+     &        -DSQRT((2*M+1.d0)/(2*M)) * SINTH *
+     &        PNORM(PLM_INDEX(M-1, M-1))
+          IF (M .LT. LMAX)
+     &      PNORM(PLM_INDEX(M+1, M)) =
+     &        DSQRT(2*M+3.d0) * X * PNORM(PLM_INDEX(M, M))
+          DO L = M+2, LMAX
+            PNORM(PLM_INDEX(L, M)) =
+     &        DSQRT((4.d0*L**2-1.d0)/(L**2-M**2)) * X *
+     &        PNORM(PLM_INDEX(L-1, M)) -
+     &        DSQRT((2*L+1.d0)*(L-M-1.d0)*(L+M-1.d0)/
+     &              ((2*L-3.d0)*(L**2-M**2))) *
+     &        PNORM(PLM_INDEX(L-2, M))
+          END DO
+        END DO
+        END SUBROUTINE ASSOC_LEGENDRE_NORM_ALL
+
+
+C     Compute d/dx of normalized P_l^m for 0<=l<=lmax, 0<=m<=l.
+C     Requires precomputed PNORM from ASSOC_LEGENDRE_NORM_ALL.
+C     Formula: (sqrt((2l+1)(l^2-m^2)/(2l-1))*PNORM(l-1,m) - l*x*PNORM(l,m))
+C              / (1-x^2); returns 0 at poles (|x|>=1).
+        SUBROUTINE DDX_ASSOC_LEGENDRE_NORM_ALL(DPNORM, PNORM, LMAX, X)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: X
+        REAL(KIND=dp),    INTENT(IN)  :: PNORM((LMAX+1)*(LMAX+2)/2)
+        REAL(KIND=dp),    INTENT(OUT) :: DPNORM((LMAX+1)*(LMAX+2)/2)
+        INTEGER(KIND=i4) :: L, M
+        REAL(KIND=dp)    :: DOM, COEFF
+
+        DOM = 1.0_dp - X**2
+
+        DO M = 0, LMAX
+          DO L = M, LMAX
+            IF (ABS(X) .GE. 1.0_dp .OR. L .EQ. 0) THEN
+              DPNORM(PLM_INDEX(L, M)) = 0.0_dp
+            ELSE IF (L .EQ. M) THEN
+              DPNORM(PLM_INDEX(L, M)) =
+     &          -L * X * PNORM(PLM_INDEX(L, M)) / DOM
+            ELSE
+              COEFF = DSQRT((2*L+1.d0)*(L**2-M**2)/(2*L-1.d0))
+              DPNORM(PLM_INDEX(L, M)) =
+     &          (COEFF * PNORM(PLM_INDEX(L-1, M)) -
+     &           L * X * PNORM(PLM_INDEX(L, M))) / DOM
+            END IF
+          END DO
+        END DO
+        END SUBROUTINE DDX_ASSOC_LEGENDRE_NORM_ALL
+
+
 C     Compute all Y_l^m(theta,phi) for 0<=l<=lmax, -l<=m<=l
 C     YLM indexed by YLM_INDEX(l,m) = l**2 + l + m + 1
 C     Y_l^{-m} = (-1)^m * conj(Y_l^m) via conjugate symmetry
@@ -594,19 +705,17 @@ C     Y_l^{-m} = (-1)^m * conj(Y_l^m) via conjugate symmetry
         REAL(KIND=dp), INTENT(IN) :: THETA, PHI
         COMPLEX(KIND=dp), INTENT(OUT) :: YLM((LMAX+1)**2)
         INTEGER(KIND=i4) :: L, M, PSIZE
-        REAL(KIND=dp), ALLOCATABLE :: P(:)
-        REAL(KIND=dp) :: NORM, SIGN_M
+        REAL(KIND=dp), ALLOCATABLE :: PNORM(:)
+        REAL(KIND=dp) :: SIGN_M
 
         PSIZE = (LMAX+1)*(LMAX+2)/2
-        ALLOCATE(P(PSIZE))
-        CALL ASSOC_LEGENDRE_ALL(P, LMAX, DCOS(THETA))
+        ALLOCATE(PNORM(PSIZE))
+        CALL ASSOC_LEGENDRE_NORM_ALL(PNORM, LMAX, DCOS(THETA))
 
         DO L = 0, LMAX
             DO M = 0, L
-                NORM = DSQRT((2.d0*L+1.d0)/(4.d0*pi)) *
-     &              EXP(0.5_dp*(LOG_FACT(L-M) - LOG_FACT(L+M)))
-                YLM(YLM_INDEX(L, M)) = NORM *
-     &              P(PLM_INDEX(L, M)) * EXP(j*M*PHI)
+                YLM(YLM_INDEX(L, M)) =
+     &              PNORM(PLM_INDEX(L, M)) * EXP(j*M*PHI)
             END DO
             DO M = 1, L
                 SIGN_M = 1.0_dp - 2.0_dp * MOD(M, 2)
@@ -615,7 +724,7 @@ C     Y_l^{-m} = (-1)^m * conj(Y_l^m) via conjugate symmetry
             END DO
         END DO
 
-        DEALLOCATE(P)
+        DEALLOCATE(PNORM)
         END SUBROUTINE SSH_ALL
 
 C     Helper: precompute YLM_OUT, GSSH_TH, GSSH_PH for all (l,m),
@@ -630,21 +739,20 @@ C     GSSH_TH/GPH are the theta/phi components of GRAD_SSH.
         COMPLEX(KIND=dp), INTENT(OUT) :: GSSH_TH((LMAX+1)**2)
         COMPLEX(KIND=dp), INTENT(OUT) :: GSSH_PH((LMAX+1)**2)
         INTEGER(KIND=i4) :: L, M, PSIZE
-        REAL(KIND=dp), ALLOCATABLE :: P(:), DP_OUT(:)
-        REAL(KIND=dp)    :: SINTH, NORM, SIGN_M
+        REAL(KIND=dp), ALLOCATABLE :: PNORM(:), DPNORM(:)
+        REAL(KIND=dp)    :: SINTH, SIGN_M
         COMPLEX(KIND=dp) :: EPHIM, YP, GTH_P, GPH_P
         PSIZE = (LMAX+1)*(LMAX+2)/2
-        ALLOCATE(P(PSIZE), DP_OUT(PSIZE))
-        CALL ASSOC_LEGENDRE_ALL(P, LMAX, DCOS(THETA))
-        CALL DDX_ASSOC_LEGENDRE_ALL(DP_OUT, P, LMAX, DCOS(THETA))
+        ALLOCATE(PNORM(PSIZE), DPNORM(PSIZE))
+        CALL ASSOC_LEGENDRE_NORM_ALL(PNORM, LMAX, DCOS(THETA))
+        CALL DDX_ASSOC_LEGENDRE_NORM_ALL(DPNORM, PNORM, LMAX,
+     &                                  DCOS(THETA))
         SINTH = DSIN(THETA)
         DO L = 0, LMAX
           DO M = 0, L
-            NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi)) *
-     &              EXP(0.5_dp*(LOG_FACT(L-M)-LOG_FACT(L+M)))
             EPHIM = EXP(j*M*PHI)
-            YP    = NORM * P(PLM_INDEX(L,M)) * EPHIM
-            GTH_P = -SINTH * NORM * DP_OUT(PLM_INDEX(L,M)) * EPHIM
+            YP    = PNORM(PLM_INDEX(L,M)) * EPHIM
+            GTH_P = -SINTH * DPNORM(PLM_INDEX(L,M)) * EPHIM
             IF (SINTH .NE. 0.d0) THEN
               GPH_P = j*M*YP/SINTH
             ELSE
@@ -661,7 +769,7 @@ C     GSSH_TH/GPH are the theta/phi components of GRAD_SSH.
             END IF
           END DO
         END DO
-        DEALLOCATE(P, DP_OUT)
+        DEALLOCATE(PNORM, DPNORM)
         END SUBROUTINE VSH_CORE
 
 
