@@ -582,4 +582,229 @@ C     Y_l^{-m} = (-1)^m * conj(Y_l^m) via conjugate symmetry
         DEALLOCATE(P)
         END SUBROUTINE SSH_ALL
 
+C     Helper: precompute YLM_OUT, GSSH_TH, GSSH_PH for all (l,m),
+C     0<=l<=LMAX, -l<=m<=l, indexed by YLM_INDEX.
+C     GSSH_TH/GPH are the theta/phi components of GRAD_SSH.
+        SUBROUTINE VSH_CORE(YLM_OUT, GSSH_TH, GSSH_PH,
+     &                      LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: YLM_OUT((LMAX+1)**2)
+        COMPLEX(KIND=dp), INTENT(OUT) :: GSSH_TH((LMAX+1)**2)
+        COMPLEX(KIND=dp), INTENT(OUT) :: GSSH_PH((LMAX+1)**2)
+        INTEGER(KIND=i4) :: L, M, PSIZE
+        REAL(KIND=dp), ALLOCATABLE :: P(:), DP_OUT(:)
+        REAL(KIND=dp)    :: SINTH, NORM
+        COMPLEX(KIND=dp) :: EPHIM, YP, GTH_P, GPH_P
+        PSIZE = (LMAX+1)*(LMAX+2)/2
+        ALLOCATE(P(PSIZE), DP_OUT(PSIZE))
+        CALL ASSOC_LEGENDRE_ALL(P, LMAX, DCOS(THETA))
+        CALL DDX_ASSOC_LEGENDRE_ALL(DP_OUT, P, LMAX, DCOS(THETA))
+        SINTH = DSIN(THETA)
+        DO L = 0, LMAX
+          DO M = 0, L
+            NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi)) *
+     &              EXP(0.5_dp*(LOG_FACT(L-M)-LOG_FACT(L+M)))
+            EPHIM = EXP(j*M*PHI)
+            YP    = NORM * P(PLM_INDEX(L,M)) * EPHIM
+            GTH_P = -SINTH * NORM * DP_OUT(PLM_INDEX(L,M)) * EPHIM
+            IF (SINTH .NE. 0.d0) THEN
+              GPH_P = j*M*YP/SINTH
+            ELSE
+              GPH_P = DCMPLX(0.d0, 0.d0)
+            END IF
+            YLM_OUT(YLM_INDEX(L, M)) = YP
+            GSSH_TH(YLM_INDEX(L, M)) = GTH_P
+            GSSH_PH(YLM_INDEX(L, M)) = GPH_P
+            IF (M .GT. 0) THEN
+              YLM_OUT(YLM_INDEX(L,-M)) = (-1)**M * CONJG(YP)
+              GSSH_TH(YLM_INDEX(L,-M)) = (-1)**M * CONJG(GTH_P)
+              GSSH_PH(YLM_INDEX(L,-M)) = (-1)**M * CONJG(GPH_P)
+            END IF
+          END DO
+        END DO
+        DEALLOCATE(P, DP_OUT)
+        END SUBROUTINE VSH_CORE
+
+
+C     Compute all GRAD_SSH for 0<=l<=LMAX, -l<=m<=l
+C     OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE GRAD_SSH_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        INTEGER(KIND=i4) :: NYLM
+        COMPLEX(KIND=dp), ALLOCATABLE :: YLM(:), GTH(:), GPH(:)
+        NYLM = (LMAX+1)**2
+        ALLOCATE(YLM(NYLM), GTH(NYLM), GPH(NYLM))
+        CALL VSH_CORE(YLM, GTH, GPH, LMAX, THETA, PHI)
+        OUT(1,:) = DCMPLX(0.d0, 0.d0)
+        OUT(2,:) = GTH
+        OUT(3,:) = GPH
+        DEALLOCATE(YLM, GTH, GPH)
+        END SUBROUTINE GRAD_SSH_ALL
+
+
+C     Compute all L_SSH (rhat x grad SSH) for 0<=l<=LMAX, -l<=m<=l
+C     OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE L_SSH_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        INTEGER(KIND=i4) :: NYLM
+        COMPLEX(KIND=dp), ALLOCATABLE :: YLM(:), GTH(:), GPH(:)
+        NYLM = (LMAX+1)**2
+        ALLOCATE(YLM(NYLM), GTH(NYLM), GPH(NYLM))
+        CALL VSH_CORE(YLM, GTH, GPH, LMAX, THETA, PHI)
+        OUT(1,:) = DCMPLX(0.d0, 0.d0)
+        OUT(2,:) = -GPH
+        OUT(3,:) =  GTH
+        DEALLOCATE(YLM, GTH, GPH)
+        END SUBROUTINE L_SSH_ALL
+
+
+C     Compute all PVSH_RAD (radial polar VSH) for 0<=l<=LMAX, -l<=m<=l
+C     OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE PVSH_RAD_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        INTEGER(KIND=i4) :: NYLM
+        COMPLEX(KIND=dp), ALLOCATABLE :: YLM(:), GTH(:), GPH(:)
+        NYLM = (LMAX+1)**2
+        ALLOCATE(YLM(NYLM), GTH(NYLM), GPH(NYLM))
+        CALL VSH_CORE(YLM, GTH, GPH, LMAX, THETA, PHI)
+        OUT(1,:) = YLM
+        OUT(2,:) = DCMPLX(0.d0, 0.d0)
+        OUT(3,:) = DCMPLX(0.d0, 0.d0)
+        DEALLOCATE(YLM, GTH, GPH)
+        END SUBROUTINE PVSH_RAD_ALL
+
+
+C     Compute all PVSH_POL (poloidal polar VSH) for 0<=l<=LMAX, -l<=m<=l
+C     Zero for l=0. OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE PVSH_POL_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        INTEGER(KIND=i4) :: L, M, NYLM, IDX
+        REAL(KIND=dp)    :: SCALE
+        COMPLEX(KIND=dp), ALLOCATABLE :: YLM(:), GTH(:), GPH(:)
+        NYLM = (LMAX+1)**2
+        ALLOCATE(YLM(NYLM), GTH(NYLM), GPH(NYLM))
+        CALL VSH_CORE(YLM, GTH, GPH, LMAX, THETA, PHI)
+        OUT = DCMPLX(0.d0, 0.d0)
+        DO L = 1, LMAX
+          SCALE = 1.d0/DSQRT(L*(L+1.d0))
+          DO M = -L, L
+            IDX = YLM_INDEX(L, M)
+            OUT(2,IDX) = GTH(IDX) * SCALE
+            OUT(3,IDX) = GPH(IDX) * SCALE
+          END DO
+        END DO
+        DEALLOCATE(YLM, GTH, GPH)
+        END SUBROUTINE PVSH_POL_ALL
+
+
+C     Compute all PVSH_TOR (toroidal polar VSH) for 0<=l<=LMAX, -l<=m<=l
+C     Zero for l=0. OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE PVSH_TOR_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        INTEGER(KIND=i4) :: L, M, NYLM, IDX
+        REAL(KIND=dp)    :: SCALE
+        COMPLEX(KIND=dp), ALLOCATABLE :: YLM(:), GTH(:), GPH(:)
+        NYLM = (LMAX+1)**2
+        ALLOCATE(YLM(NYLM), GTH(NYLM), GPH(NYLM))
+        CALL VSH_CORE(YLM, GTH, GPH, LMAX, THETA, PHI)
+        OUT = DCMPLX(0.d0, 0.d0)
+        DO L = 1, LMAX
+          SCALE = 1.d0/DSQRT(L*(L+1.d0))
+          DO M = -L, L
+            IDX = YLM_INDEX(L, M)
+            OUT(2,IDX) =  j*GPH(IDX)*SCALE
+            OUT(3,IDX) = -j*GTH(IDX)*SCALE
+          END DO
+        END DO
+        DEALLOCATE(YLM, GTH, GPH)
+        END SUBROUTINE PVSH_TOR_ALL
+
+
+C     Compute all VSH_TOR for 0<=l<=LMAX, -l<=m<=l (identical to PVSH_TOR)
+C     OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE VSH_TOR_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        CALL PVSH_TOR_ALL(OUT, LMAX, THETA, PHI)
+        END SUBROUTINE VSH_TOR_ALL
+
+
+C     Compute all VSH_POL_UP (J=L+1 polar VSH) for 0<=l<=LMAX, -l<=m<=l
+C     sqrt(L/(2L+1))*PVSH_POL - sqrt((L+1)/(2L+1))*PVSH_RAD
+C     OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE VSH_POL_UP_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        INTEGER(KIND=i4) :: L, M, NYLM, IDX
+        REAL(KIND=dp)    :: SC_TH, SC_R
+        COMPLEX(KIND=dp), ALLOCATABLE :: YLM(:), GTH(:), GPH(:)
+        NYLM = (LMAX+1)**2
+        ALLOCATE(YLM(NYLM), GTH(NYLM), GPH(NYLM))
+        CALL VSH_CORE(YLM, GTH, GPH, LMAX, THETA, PHI)
+        OUT = DCMPLX(0.d0, 0.d0)
+        OUT(1, YLM_INDEX(0,0)) = -YLM(YLM_INDEX(0,0))
+        DO L = 1, LMAX
+          SC_TH = 1.d0/DSQRT((2*L+1.d0)*(L+1.d0))
+          SC_R  = -DSQRT((L+1.d0)/(2*L+1.d0))
+          DO M = -L, L
+            IDX = YLM_INDEX(L, M)
+            OUT(1,IDX) = SC_R  * YLM(IDX)
+            OUT(2,IDX) = SC_TH * GTH(IDX)
+            OUT(3,IDX) = SC_TH * GPH(IDX)
+          END DO
+        END DO
+        DEALLOCATE(YLM, GTH, GPH)
+        END SUBROUTINE VSH_POL_UP_ALL
+
+
+C     Compute all VSH_POL_DN (J=L-1 polar VSH) for 0<=l<=LMAX, -l<=m<=l
+C     sqrt((L+1)/(2L+1))*PVSH_POL + sqrt(L/(2L+1))*PVSH_RAD
+C     Zero for l=0. OUT(c, YLM_INDEX(l,m)), c=1(r), 2(theta), 3(phi)
+        SUBROUTINE VSH_POL_DN_ALL(OUT, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: LMAX
+        REAL(KIND=dp),    INTENT(IN)  :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: OUT(3,(LMAX+1)**2)
+        INTEGER(KIND=i4) :: L, M, NYLM, IDX
+        REAL(KIND=dp)    :: SC_TH, SC_R
+        COMPLEX(KIND=dp), ALLOCATABLE :: YLM(:), GTH(:), GPH(:)
+        NYLM = (LMAX+1)**2
+        ALLOCATE(YLM(NYLM), GTH(NYLM), GPH(NYLM))
+        CALL VSH_CORE(YLM, GTH, GPH, LMAX, THETA, PHI)
+        OUT = DCMPLX(0.d0, 0.d0)
+        DO L = 1, LMAX
+          SC_TH = 1.d0/DSQRT((2*L+1.d0)*DBLE(L))
+          SC_R  = DSQRT(DBLE(L)/(2*L+1.d0))
+          DO M = -L, L
+            IDX = YLM_INDEX(L, M)
+            OUT(1,IDX) = SC_R  * YLM(IDX)
+            OUT(2,IDX) = SC_TH * GTH(IDX)
+            OUT(3,IDX) = SC_TH * GPH(IDX)
+          END DO
+        END DO
+        DEALLOCATE(YLM, GTH, GPH)
+        END SUBROUTINE VSH_POL_DN_ALL
+
+
       END MODULE VSH

@@ -278,4 +278,340 @@ C     Accumulate int_{-1}^{1} P_l1^m(u) * P_l2^m(u) du via midpoint rule
       DEALLOCATE(P, ORTHO)
       END SUBROUTINE SSH_ORTHO
 
+
+C  Test GRAD_SSH_ALL against GRAD_SSH for each (l,m,theta)
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_GRAD_SSH_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL GRAD_SSH_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 0, LMAX
+          DO M = -L, L
+            VS = GRAD_SSH(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_GRAD_SSH_CONS
+
+
+C  Test L_SSH_ALL against L_SSH for each (l,m,theta)
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_L_SSH_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL L_SSH_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 0, LMAX
+          DO M = -L, L
+            VS = L_SSH(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_L_SSH_CONS
+
+
+C  Test PVSH_RAD_ALL against PVSH_RAD for each (l,m,theta)
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_PVSH_RAD_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL PVSH_RAD_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 0, LMAX
+          DO M = -L, L
+            VS = PVSH_RAD(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_PVSH_RAD_CONS
+
+
+C  Test PVSH_POL_ALL against PVSH_POL for each (l,m,theta)
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_PVSH_POL_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL PVSH_POL_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 0, LMAX
+          DO M = -L, L
+            VS = PVSH_POL(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_PVSH_POL_CONS
+
+
+C  Test PVSH_TOR_ALL against PVSH_TOR for l>=1 (single-mode PVSH_TOR
+C  has a 0/0 form at l=0 that the batch routine resolves to zero)
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_PVSH_TOR_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL PVSH_TOR_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 1, LMAX
+          DO M = -L, L
+            VS = PVSH_TOR(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_PVSH_TOR_CONS
+
+
+C  Test VSH_TOR_ALL against VSH_TOR for l>=1
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_VSH_TOR_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL VSH_TOR_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 1, LMAX
+          DO M = -L, L
+            VS = VSH_TOR(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_VSH_TOR_CONS
+
+
+C  Test VSH_POL_UP_ALL against VSH_POL_UP for each (l,m,theta)
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_VSH_POL_UP_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL VSH_POL_UP_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 0, LMAX
+          DO M = -L, L
+            VS = VSH_POL_UP(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_VSH_POL_UP_CONS
+
+
+C  Test VSH_POL_DN_ALL against VSH_POL_DN for each (l,m,theta)
+C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
+      SUBROUTINE BATCH_VSH_POL_DN_CONS(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp), DIMENSION(3) :: VS
+      COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(OUT(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL VSH_POL_DN_ALL(OUT, LMAX, THETA, PHI)
+        DO L = 0, LMAX
+          DO M = -L, L
+            VS = VSH_POL_DN(L, M, THETA, PHI)
+            WRITE(OUTUNIT, *) L, M, THETA, PHI,
+     &          ABS(OUT(1,YLM_INDEX(L,M))-VS(1)),
+     &          ABS(OUT(2,YLM_INDEX(L,M))-VS(2)),
+     &          ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(OUT)
+      END SUBROUTINE BATCH_VSH_POL_DN_CONS
+
+
+C  Test pointwise bilinear orthogonality of PVSH_POL and PVSH_TOR:
+C  DOT(PVSH_POL(l,m), PVSH_TOR(l,m)) = 0 for all l>=1, m, theta, phi.
+C  Verified analytically; any nonzero value indicates numerical error.
+C  Columns: L  M  theta  phi  |DOT(PVSH_POL, PVSH_TOR)|
+      SUBROUTINE PVSH_POL_TOR_ORTHO(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, ITH, NYLM, IDX
+      REAL(KIND=dp) :: THETA, PHI, DTH
+      COMPLEX(KIND=dp) :: DOTVAL
+      COMPLEX(KIND=dp), ALLOCATABLE :: POL(:,:), TOR(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(POL(3, NYLM), TOR(3, NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  |DOT(PVSH_POL,PVSH_TOR)|'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL PVSH_POL_ALL(POL, LMAX, THETA, PHI)
+        CALL PVSH_TOR_ALL(TOR, LMAX, THETA, PHI)
+        DO L = 1, LMAX
+          DO M = -L, L
+            IDX = YLM_INDEX(L, M)
+            DOTVAL = DOT(POL(:,IDX), TOR(:,IDX))
+            WRITE(OUTUNIT, *) L, M, THETA, PHI, ABS(DOTVAL)
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(POL, TOR)
+      END SUBROUTINE PVSH_POL_TOR_ORTHO
+
+
+C  Test VSH_POL_UP/DN inversion back to PVSH_POL and PVSH_RAD:
+C    sqrt(l/(2l+1))*VSH_POL_UP + sqrt((l+1)/(2l+1))*VSH_POL_DN = PVSH_POL
+C   -sqrt((l+1)/(2l+1))*VSH_POL_UP + sqrt(l/(2l+1))*VSH_POL_DN = PVSH_RAD
+C  Columns: L  M  theta  phi  max_absdiff_pol  max_absdiff_rad
+      SUBROUTINE VSH_POL_INVERSION(LMAX, NTH, OUTUNIT)
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+      INTEGER(KIND=i4) :: L, M, C, ITH, NYLM, IDX
+      REAL(KIND=dp) :: THETA, PHI, DTH, SC_POL, SC_RAD
+      REAL(KIND=dp) :: DIFF_POL, DIFF_RAD
+      COMPLEX(KIND=dp), ALLOCATABLE :: UP(:,:), DN(:,:)
+      COMPLEX(KIND=dp), ALLOCATABLE :: POL(:,:), RAD(:,:)
+      NYLM = (LMAX+1)**2
+      ALLOCATE(UP(3,NYLM), DN(3,NYLM), POL(3,NYLM), RAD(3,NYLM))
+      DTH = pi / (NTH + 1)
+      PHI = pi / 4.d0
+      WRITE(OUTUNIT,'(A)')
+     &    '# L  M  theta  phi  max_absdiff_pol  max_absdiff_rad'
+      DO ITH = 1, NTH
+        THETA = ITH * DTH
+        CALL VSH_POL_UP_ALL(UP,  LMAX, THETA, PHI)
+        CALL VSH_POL_DN_ALL(DN,  LMAX, THETA, PHI)
+        CALL PVSH_POL_ALL(POL, LMAX, THETA, PHI)
+        CALL PVSH_RAD_ALL(RAD, LMAX, THETA, PHI)
+        DO L = 0, LMAX
+          SC_POL = DSQRT(DBLE(L)/(2*L+1.d0))
+          SC_RAD = DSQRT((L+1.d0)/(2*L+1.d0))
+          DO M = -L, L
+            IDX = YLM_INDEX(L, M)
+            DIFF_POL = 0.d0
+            DIFF_RAD = 0.d0
+            DO C = 1, 3
+              DIFF_POL = MAX(DIFF_POL, ABS(
+     &            SC_POL*UP(C,IDX) + SC_RAD*DN(C,IDX) - POL(C,IDX)))
+              DIFF_RAD = MAX(DIFF_RAD, ABS(
+     &           -SC_RAD*UP(C,IDX) + SC_POL*DN(C,IDX) - RAD(C,IDX)))
+            END DO
+            WRITE(OUTUNIT, *) L, M, THETA, PHI, DIFF_POL, DIFF_RAD
+          END DO
+        END DO
+      END DO
+      DEALLOCATE(UP, DN, POL, RAD)
+      END SUBROUTINE VSH_POL_INVERSION
+
+
       END MODULE TESTS
