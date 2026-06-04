@@ -426,7 +426,7 @@ C  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
       DO ITH = 1, NTH
         THETA = ITH * DTH
         CALL PVSH_TOR_ALL(OUT, LMAX, THETA, PHI)
-        DO L = 1, LMAX
+        DO L = 0, LMAX
           DO M = -L, L
             VS = PVSH_TOR(L, M, THETA, PHI)
             WRITE(OUTUNIT, *) L, M, THETA, PHI,

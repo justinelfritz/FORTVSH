@@ -20,17 +20,6 @@ c     Compute Factorial k! for k>=0
         RETURN
         END FUNCTION FACTORIAL
 
-c     Compute Log of Gamma function for (L+K)!/(L-K)! SSH pre-factor
-        FUNCTION SSH_LG(L,K)
-        IMPLICIT NONE
-        REAL(KIND=dp) :: SSH_LG, TEMP1, TEMP2
-        INTEGER(KIND=i4) :: L,K
-        TEMP1 = L+K+1.d0
-        TEMP2 = L-K+1.d0
-        SSH_LG = EXP(LOG_GAMMA(TEMP1)-LOG_GAMMA(TEMP2))
-        RETURN
-        END FUNCTION SSH_LG
-
 
 c     Compute Legendre polynomial P_l(x) order l at -1<=x<=+1
         FUNCTION LEGENDRE(L,X)       
@@ -79,61 +68,6 @@ C     Compute d/dx of Legendre polynomial P_l(x) order l at -1<=x<=+1
         RETURN
         END FUNCTION DDX_LEGENDRE
 
-c     Compute d/dx of Associated Legendre polynomial P_l^k(x)
-        FUNCTION DDX_ASSOC_LEGENDRE_DEPRC(L,K,X)
-        IMPLICIT NONE
-        INTEGER(KIND=i4) :: L,K,ABSK
-        REAL(KIND=dp) :: X, DDX_ASSOC_LEGENDRE_DEPRC,F0,F1,F2
-        ABSK = ABS(K)
-        IF (K.EQ.0) THEN
-            DDX_ASSOC_LEGENDRE_DEPRC = DDX_LEGENDRE(L, X)
-        ELSEIF (K.NE.0 .AND. ABSK.LE.L .AND. ABS(X).LT.1.d0) THEN
-            F0 = ASSOC_LEGENDRE(L-1,K,X)
-            F1 = ASSOC_LEGENDRE(L,K,X)
-            F2 = (L*X*F1-(L+K)*F0)/(-1.d0+X**2)
-
-            DDX_ASSOC_LEGENDRE_DEPRC = F2  
-        ELSE 
-            DDX_ASSOC_LEGENDRE_DEPRC = 0.d0          
-        ENDIF
-        RETURN
-        END FUNCTION DDX_ASSOC_LEGENDRE_DEPRC
-
-C     Compute Associated Legendre polynomial P_l^k(x) 
-        FUNCTION ASSOC_LEGENDRE_DEPRC(L,K,X)
-        IMPLICIT NONE
-        INTEGER(KIND=i4) :: L,K,I,ABSK
-        REAL(KIND=dp) :: X,ASSOC_LEGENDRE_DEPRC,F0, F1, F2
-c        REAL(KIND=dp) FACTORIAL
-        ABSK = ABS(K)
-        IF (K .EQ. 0) THEN
-            ASSOC_LEGENDRE_DEPRC = LEGENDRE(L,X)
-        ELSE IF (K .NE. 0 .AND. ABSK .LE. L) THEN
-            IF (ABS(X) .LT. 1.d0) THEN
-                F0 = LEGENDRE(L-1,X)
-                F1 = LEGENDRE(L,X)
-                F2 = (L*X*F1-L*F0)/DSQRT(1.d0-X**2)
-                I = 2
-                DO WHILE (I .LE. ABSK)
-                    F0 = F1
-                    F1 = F2
-                    F2 = -2.d0*X*(I-1.d0)*F1/DSQRT(1.d0-X**2)-
-     &             (L+I-1.d0)*(L-I+2.d0)*F0
-                    I = I+1
-                END DO
-                IF (K .LT. 0) THEN
-                    F2=(-1)**ABSK*FACTORIAL(L-ABSK)*F2/FACTORIAL(L+ABSK)
-                ENDIF
-                ASSOC_LEGENDRE_DEPRC = F2  
-            ELSE
-                ASSOC_LEGENDRE_DEPRC = 0.d0
-            ENDIF
-        ELSE 
-            ASSOC_LEGENDRE_DEPRC = 0.d0          
-        ENDIF
-        RETURN 
-        END FUNCTION ASSOC_LEGENDRE_DEPRC
-
         FUNCTION ASSOC_LEGENDRE(L, K, X)
             IMPLICIT NONE
             INTEGER :: L, K, ABSK, I
@@ -172,47 +106,75 @@ c        REAL(KIND=dp) FACTORIAL
         
             IF (K < 0) THEN
                 Plm = ((-1.0_dp)**ABSK)*
-     &                (FACTORIAL(L-ABSK)/FACTORIAL(L+ABSK))*Plm
+     &                EXP(LOG_FACT(L-ABSK)-LOG_FACT(L+ABSK))*Plm
             END IF
         
             ASSOC_LEGENDRE = Plm
         END FUNCTION ASSOC_LEGENDRE
 
+C     Compute P_l^k(x) and d/dx P_l^k(x) in a single upward recurrence.
+C     Eliminates the two separate ASSOC_LEGENDRE calls in DDX_ASSOC_LEGENDRE
+C     and the redundant SSH + DDX_ASSOC_LEGENDRE pair in GRAD_SSH / L_SSH.
+C     Returns PLK=0, DPLK=0 for |k|>l or |x|>1; DPLK=0 at the poles (|x|=1).
+        SUBROUTINE ASSOC_LEGENDRE_AND_DERIV(L, K, X, PLK, DPLK)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN)  :: L, K
+        REAL(KIND=dp),    INTENT(IN)  :: X
+        REAL(KIND=dp),    INTENT(OUT) :: PLK, DPLK
+        INTEGER(KIND=i4) :: ABSK, I
+        REAL(KIND=dp)    :: Pmm, Pmm1, Plm, Plm1, somx2, DOM, SIGN_K
+        ABSK = ABS(K)
+        IF (ABSK .GT. L .OR. ABS(X) .GT. 1.0_dp) THEN
+          PLK  = 0.0_dp
+          DPLK = 0.0_dp
+          RETURN
+        END IF
+        DOM  = 1.0_dp - X**2
+        Pmm  = 1.0_dp
+        Plm1 = 0.0_dp
+        IF (ABSK .GT. 0) THEN
+          somx2 = SQRT((1.0_dp - X) * (1.0_dp + X))
+          DO I = 1, ABSK
+            Pmm = -Pmm * (2*I - 1) * somx2
+          END DO
+        END IF
+        IF (L .EQ. ABSK) THEN
+          Plm = Pmm
+        ELSE
+          Pmm1 = X * (2 * ABSK + 1) * Pmm
+          IF (L .EQ. ABSK + 1) THEN
+            Plm  = Pmm1
+            Plm1 = Pmm
+          ELSE
+            DO I = ABSK + 2, L
+              Plm  = (X*(2*I-1)*Pmm1-(I+ABSK-1)*Pmm) / (I-ABSK)
+              Pmm  = Pmm1
+              Pmm1 = Plm
+            END DO
+            Plm1 = Pmm
+          END IF
+        END IF
+        IF (K .LT. 0) THEN
+          SIGN_K = (-1.0_dp)**ABSK
+          Plm  = SIGN_K*EXP(LOG_FACT(L-ABSK)-LOG_FACT(L+ABSK))*Plm
+          IF (L .GT. ABSK)
+     &      Plm1 = SIGN_K*
+     &             EXP(LOG_FACT(L-1-ABSK)-LOG_FACT(L-1+ABSK))*Plm1
+        END IF
+        PLK = Plm
+        IF (L .EQ. 0 .OR. ABS(X) .GE. 1.0_dp) THEN
+          DPLK = 0.0_dp
+        ELSE
+          DPLK = ((L + K) * Plm1 - L * X * Plm) / DOM
+        END IF
+        END SUBROUTINE ASSOC_LEGENDRE_AND_DERIV
+
         FUNCTION DDX_ASSOC_LEGENDRE(L, K, X) RESULT(RES)
             IMPLICIT NONE
             INTEGER(KIND=i4), INTENT(IN) :: L, K
             REAL(KIND=dp), INTENT(IN)    :: X
-            REAL(KIND=dp)                :: RES
-            
-            INTEGER(KIND=i4) :: ABSK
-            REAL(KIND=dp)    :: F0, F1, DOM
-            
-            ABSK = ABS(K)
-            DOM = 1.0_dp - X**2
-        
-            IF (ABS(X) >= 1.0_dp) THEN
-                ! Mathematically, the derivative is often undefined or 
-                ! requires a limit-based approach at the poles.
-                RES = 0.0_dp ! Or handle as a specific boundary case
-                RETURN
-            END IF
-        
-            IF (ABSK > L) THEN
-                RES = 0.0_dp
-            ELSE IF (K == 0) THEN
-                RES = DDX_LEGENDRE(L, X)
-            ELSE
-                ! Ensure L-1 is valid
-                IF (L > 0) THEN
-                    F0 = ASSOC_LEGENDRE(L-1, K, X)
-                    F1 = ASSOC_LEGENDRE(L, K, X)
-                    ! Using the standard recurrence: ( (l+k)P_{l-1} - l*x*P_l ) / (1 - x^2)
-                    RES = ((L + K) * F0 - L * X * F1) / DOM
-                ELSE
-                    RES = 0.0_dp
-                END IF
-            END IF
-        
+            REAL(KIND=dp)                :: RES, PLK_UNUSED
+            CALL ASSOC_LEGENDRE_AND_DERIV(L, K, X, PLK_UNUSED, RES)
         END FUNCTION DDX_ASSOC_LEGENDRE
 
 C     Compute scalar spherical harmonic Y_l^k(theta,phi) at 0<=theta<=pi, 0<=phi<=2pi
@@ -220,45 +182,34 @@ C     Ylk = sqrt{(2l+1)/4pi}sqrt{(l-k)!/(l+k)!}P_l^k*exp(i k phi)
         FUNCTION SSH(L,K,THETA,PHI)
         IMPLICIT NONE
         INTEGER(KIND=i4) :: L,K
-        REAL(KIND=dp) :: THETA,PHI
+        REAL(KIND=dp) :: THETA,PHI,NORM
         COMPLEX(KIND=dp) :: SSH
-        SSH = DSQRT((2.d0*L+1.d0)*FACTORIAL(L-K))/
-     &      DSQRT((4.d0*pi)*FACTORIAL(L+K))*
-     &      ASSOC_LEGENDRE(L,K,DCOS(THETA))*EXP(j*K*PHI)
+        NORM = DSQRT((2.d0*L+1.d0)/(4.d0*pi))*
+     &      EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
+        SSH = NORM*ASSOC_LEGENDRE(L,K,DCOS(THETA))*EXP(j*K*PHI)
         RETURN
         END FUNCTION SSH
-
-c        FUNCTION SCALAR_SH(L,K,THETA,PHI)
-c        IMPLICIT NONE
-c        INTEGER(KIND=i4) :: L,K
-c        REAL(KIND=dp) :: THETA,PHI
-c        COMPLEX(KIND=dp) :: SCALAR_SH
-c        SSH = DSQRT((2.d0*L+1.d0)*FACTORIAL(L-K))/
-c     &      DSQRT((4.d0*pi)*FACTORIAL(L+K))*
-c     &      ASSOC_LEGENDRE(L,K,DCOS(THETA))*EXP(j*K*PHI)
-
-c        SCALAR_SH = 0.5d0*DSQRT((2.d0*L+1.d0)/pi) * 
-c     &              SSH_LG(L,K) * 
-c        RETURN
-c        END FUNCTION SCALAR_SH    
 
 C     Compute angular gradient of scalar spherical harmonic Ylk at 0<=theta<=pi, 0<=phi<=2pi
         FUNCTION GRAD_SSH(L,K,THETA,PHI)
         IMPLICIT NONE
         INTEGER(KIND=i4) :: L,K
-        REAL(KIND=dp) :: THETA,PHI
-        COMPLEX(KIND=dp) :: YLM
+        REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK
+        COMPLEX(KIND=dp) :: EPHIM, YLM
         COMPLEX(KIND=dp), DIMENSION(3) :: GRAD_SSH
-        YLM = SSH(L,K,THETA,PHI)
+        SINTH = DSIN(THETA)
+        NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi))*
+     &      EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
+        CALL ASSOC_LEGENDRE_AND_DERIV(L, K, DCOS(THETA), PLK, DPLK)
+        EPHIM = EXP(j*K*PHI)
+        YLM   = NORM * PLK * EPHIM
         GRAD_SSH(1) = CMPLX(0.d0, 0.d0)
-        GRAD_SSH(2) =-DSIN(THETA)*DSQRT((2.d0*L+1.d0)*FACTORIAL(L-K))/
-     &       DSQRT((4.d0*pi)*FACTORIAL(L+K))*
-     &       DDX_ASSOC_LEGENDRE(L,K,DCOS(THETA))*EXP(j*K*PHI)
-        IF(ABS(K) .EQ. 1) THEN
-          GRAD_SSH(3) = j*K*YLM/DSIN(THETA)
+        GRAD_SSH(2) = -SINTH * NORM * DPLK * EPHIM
+        IF (SINTH .NE. 0.d0) THEN
+          GRAD_SSH(3) = j*K*YLM/SINTH
         ELSE
-          GRAD_SSH(3) = j*K*YLM/DSIN(THETA)
-        ENDIF
+          GRAD_SSH(3) = DCMPLX(0.d0, 0.d0)
+        END IF
         RETURN
         END FUNCTION GRAD_SSH 
 
@@ -267,15 +218,22 @@ C     Compute rhat X angular gradient of scalar spherical harmonic Ylk at 0<=the
         FUNCTION L_SSH(L,K,THETA,PHI)
         IMPLICIT NONE
         INTEGER(KIND=i4) :: L,K
-        REAL(KIND=dp) :: THETA,PHI
-        COMPLEX(KIND=dp) :: YLM
+        REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK
+        COMPLEX(KIND=dp) :: EPHIM, YLM
         COMPLEX(KIND=dp), DIMENSION(3) :: L_SSH
-        YLM = SSH(L,K,THETA,PHI)
+        SINTH = DSIN(THETA)
+        NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi))*
+     &      EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
+        CALL ASSOC_LEGENDRE_AND_DERIV(L, K, DCOS(THETA), PLK, DPLK)
+        EPHIM = EXP(j*K*PHI)
+        YLM   = NORM * PLK * EPHIM
         L_SSH(1) = DCMPLX(0.d0, 0.d0)
-        L_SSH(2) = -j*K*YLM/DSIN(THETA)
-        L_SSH(3) = -DSIN(THETA)*DSQRT((2.d0*L+1.d0)*FACTORIAL(L-K))/
-     &       DSQRT((4.d0*pi)*FACTORIAL(L+K))*
-     &       DDX_ASSOC_LEGENDRE(L,K,DCOS(THETA))*EXP(j*K*PHI)
+        IF (SINTH .NE. 0.d0) THEN
+          L_SSH(2) = -j*K*YLM/SINTH
+        ELSE
+          L_SSH(2) = DCMPLX(0.d0, 0.d0)
+        END IF
+        L_SSH(3) = -SINTH * NORM * DPLK * EPHIM
         RETURN
         END FUNCTION L_SSH
 
@@ -299,13 +257,30 @@ C     Compute transverse/toroidal component of polar vector spherical harmonic Y
         FUNCTION PVSH_TOR(L,K,THETA,PHI)
         IMPLICIT NONE
         INTEGER(KIND=i4) :: L,K
-        REAL(KIND=dp) :: THETA,PHI
-        COMPLEX(KIND=dp), DIMENSION(3) :: LHATSSH
+        REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK,SCALE
+        COMPLEX(KIND=dp) :: EPHIM,YLM,GTH,GPH
         COMPLEX(KIND=dp), DIMENSION(3) :: PVSH_TOR
-        LHATSSH = L_SSH(L,K,THETA,PHI)
         PVSH_TOR(1) = DCMPLX(0.d0, 0.d0)
-        PVSH_TOR(2) = -j*LHATSSH(2)/DSQRT(L*(L+1.d0))
-        PVSH_TOR(3) = -j*LHATSSH(3)/DSQRT(L*(L+1.d0))
+        IF (L .GT. 0) THEN
+          SINTH = DSIN(THETA)
+          NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi))*
+     &            EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
+          CALL ASSOC_LEGENDRE_AND_DERIV(L, K, DCOS(THETA), PLK, DPLK)
+          EPHIM = EXP(j*K*PHI)
+          YLM   = NORM * PLK * EPHIM
+          GTH   = -SINTH * NORM * DPLK * EPHIM
+          IF (SINTH .NE. 0.d0) THEN
+            GPH = j*K*YLM/SINTH
+          ELSE
+            GPH = DCMPLX(0.d0, 0.d0)
+          END IF
+          SCALE = 1.d0/DSQRT(L*(L+1.d0))
+          PVSH_TOR(2) =  j*GPH*SCALE
+          PVSH_TOR(3) = -j*GTH*SCALE
+        ELSE
+          PVSH_TOR(2) = DCMPLX(0.d0, 0.d0)
+          PVSH_TOR(3) = DCMPLX(0.d0, 0.d0)
+        END IF
         RETURN
         END FUNCTION PVSH_TOR
 
@@ -313,19 +288,32 @@ C     Compute transverse/toroidal component of polar vector spherical harmonic Y
 C     Compute transverse/polar component of polar vector spherical harmonic Y_(L,K)^(+1) ~ GRADSSH
         FUNCTION PVSH_POL(L,K,THETA,PHI)
         IMPLICIT NONE
-        INTEGER(KIND=i4), INTENT (IN) :: L,K
-        REAL(KIND=dp), INTENT (IN) :: THETA,PHI
-        COMPLEX(KIND=dp), DIMENSION(3) :: GRDSSH
+        INTEGER(KIND=i4), INTENT(IN) :: L,K
+        REAL(KIND=dp), INTENT(IN) :: THETA,PHI
+        REAL(KIND=dp) :: SINTH,NORM,PLK,DPLK,SCALE
+        COMPLEX(KIND=dp) :: EPHIM,YLM,GTH,GPH
         COMPLEX(KIND=dp), DIMENSION(3) :: PVSH_POL
-        GRDSSH = GRAD_SSH(L,K,THETA,PHI)
         PVSH_POL(1) = DCMPLX(0.d0, 0.d0)
         IF (L .GT. 0) THEN
-          PVSH_POL(2) = GRDSSH(2)/DSQRT(L*(L+1.d0))
-          PVSH_POL(3) = GRDSSH(3)/DSQRT(L*(L+1.d0))
+          SINTH = DSIN(THETA)
+          NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi))*
+     &            EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
+          CALL ASSOC_LEGENDRE_AND_DERIV(L, K, DCOS(THETA), PLK, DPLK)
+          EPHIM = EXP(j*K*PHI)
+          YLM   = NORM * PLK * EPHIM
+          GTH   = -SINTH * NORM * DPLK * EPHIM
+          IF (SINTH .NE. 0.d0) THEN
+            GPH = j*K*YLM/SINTH
+          ELSE
+            GPH = DCMPLX(0.d0, 0.d0)
+          END IF
+          SCALE = 1.d0/DSQRT(L*(L+1.d0))
+          PVSH_POL(2) = GTH*SCALE
+          PVSH_POL(3) = GPH*SCALE
         ELSE
           PVSH_POL(2) = DCMPLX(0.d0, 0.d0)
           PVSH_POL(3) = DCMPLX(0.d0, 0.d0)
-        ENDIF
+        END IF
         RETURN
         END FUNCTION PVSH_POL
 
@@ -346,13 +334,31 @@ C     Compute transverse component of standard vector spherical harmonic Y_(L,K)
         FUNCTION VSH_POL_DN(L,K,THETA,PHI)
         IMPLICIT NONE
         INTEGER(KIND=i4) :: L,K
-        REAL(KIND=dp) :: THETA,PHI 
-        COMPLEX(KIND=dp), DIMENSION(3) :: UR, UGRAD
+        REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK,SC1,SC23
+        COMPLEX(KIND=dp) :: EPHIM,YLM,GTH,GPH
         COMPLEX(KIND=dp), DIMENSION(3) :: VSH_POL_DN
-        UR = PVSH_RAD(L,K,THETA,PHI)
-        UGRAD = PVSH_POL(L,K,THETA,PHI)
-        VSH_POL_DN = DSQRT((L+1.d0)/(2.d0*L+1.d0))*UGRAD + 
-     &          DSQRT((L)/(2.d0*L+1.d0))*UR
+        VSH_POL_DN(1) = DCMPLX(0.d0, 0.d0)
+        VSH_POL_DN(2) = DCMPLX(0.d0, 0.d0)
+        VSH_POL_DN(3) = DCMPLX(0.d0, 0.d0)
+        IF (L .GT. 0) THEN
+          SINTH = DSIN(THETA)
+          NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi))*
+     &            EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
+          CALL ASSOC_LEGENDRE_AND_DERIV(L, K, DCOS(THETA), PLK, DPLK)
+          EPHIM = EXP(j*K*PHI)
+          YLM   = NORM * PLK * EPHIM
+          GTH   = -SINTH * NORM * DPLK * EPHIM
+          IF (SINTH .NE. 0.d0) THEN
+            GPH = j*K*YLM/SINTH
+          ELSE
+            GPH = DCMPLX(0.d0, 0.d0)
+          END IF
+          SC1  = DSQRT(DBLE(L)/(2*L+1.d0))
+          SC23 = 1.d0/DSQRT((2*L+1.d0)*DBLE(L))
+          VSH_POL_DN(1) = SC1  * YLM
+          VSH_POL_DN(2) = SC23 * GTH
+          VSH_POL_DN(3) = SC23 * GPH
+        END IF
         RETURN
         END FUNCTION VSH_POL_DN
 
@@ -361,13 +367,31 @@ C     Compute transverse component of polar vector spherical harmonic Y_(L,K)^L+
         FUNCTION VSH_POL_UP(L,K,THETA,PHI)
         IMPLICIT NONE
         INTEGER(KIND=i4) :: L,K
-        REAL(KIND=dp) :: THETA,PHI
-        COMPLEX(KIND=dp), DIMENSION(3) :: UR, UGRAD
+        REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK,SC1,SC23
+        COMPLEX(KIND=dp) :: EPHIM,YLM,GTH,GPH
         COMPLEX(KIND=dp), DIMENSION(3) :: VSH_POL_UP
-        UR = PVSH_RAD(L,K,THETA,PHI)
-        UGRAD = PVSH_POL(L,K,THETA,PHI)
-        VSH_POL_UP = DSQRT((L)/(2.d0*L+1.d0))*UGRAD - 
-     &          DSQRT((L+1.d0)/(2.d0*L+1.d0))*UR
+        SINTH = DSIN(THETA)
+        NORM  = DSQRT((2.d0*L+1.d0)/(4.d0*pi))*
+     &          EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
+        CALL ASSOC_LEGENDRE_AND_DERIV(L, K, DCOS(THETA), PLK, DPLK)
+        EPHIM = EXP(j*K*PHI)
+        YLM   = NORM * PLK * EPHIM
+        SC1   = -DSQRT((L+1.d0)/(2*L+1.d0))
+        VSH_POL_UP(1) = SC1 * YLM
+        IF (L .GT. 0) THEN
+          GTH = -SINTH * NORM * DPLK * EPHIM
+          IF (SINTH .NE. 0.d0) THEN
+            GPH = j*K*YLM/SINTH
+          ELSE
+            GPH = DCMPLX(0.d0, 0.d0)
+          END IF
+          SC23 = 1.d0/DSQRT((2*L+1.d0)*(L+1.d0))
+          VSH_POL_UP(2) = SC23 * GTH
+          VSH_POL_UP(3) = SC23 * GPH
+        ELSE
+          VSH_POL_UP(2) = DCMPLX(0.d0, 0.d0)
+          VSH_POL_UP(3) = DCMPLX(0.d0, 0.d0)
+        END IF
         RETURN
         END FUNCTION VSH_POL_UP
 
@@ -398,16 +422,27 @@ C     Adapted from David Simpson (NASA GSFC)
             SUMK = 0.0_dp
             KMIN = MAX(0, J1-J3+M2, J2-J3-M1)
             KMAX = MIN(J1+J2-J3, J1-M1, J2+M2)
-            DO K = KMIN,KMAX
-                TERM = LOG_FACT(J1+J2-J3-K)+LOG_FACT(J3-J1-M2+K)+ 
-     &                 LOG_FACT(J3-J2+M1+K)+LOG_FACT(J1-M1-K)+  
-     &                 LOG_FACT(J2+M2-K)+LOG_FACT(K)
+            IF (KMIN .LE. KMAX) THEN
+              TERM = LOG_FACT(J1+J2-J3-KMIN)+LOG_FACT(J3-J1-M2+KMIN)+
+     &               LOG_FACT(J3-J2+M1+KMIN)+LOG_FACT(J1-M1-KMIN)+
+     &               LOG_FACT(J2+M2-KMIN)+LOG_FACT(KMIN)
+              DO K = KMIN, KMAX
                 IF (MOD(K,2) == 1) THEN
-                    SUMK = SUMK - EXP(-TERM)
+                  SUMK = SUMK - EXP(-TERM)
                 ELSE
-                    SUMK = SUMK + EXP(-TERM)
+                  SUMK = SUMK + EXP(-TERM)
                 END IF
-            END DO
+                IF (K .LT. KMAX) THEN
+                  TERM = TERM
+     &                 - LOG(DBLE(J1+J2-J3-K))
+     &                 + LOG(DBLE(J3-J1-M2+K+1))
+     &                 + LOG(DBLE(J3-J2+M1+K+1))
+     &                 - LOG(DBLE(J1-M1-K))
+     &                 - LOG(DBLE(J2+M2-K))
+     &                 + LOG(DBLE(K+1))
+                END IF
+              END DO
+            END IF
             CGCOEFF = CGCOEFF*SUMK
         ENDIF
         RETURN
@@ -560,7 +595,7 @@ C     Y_l^{-m} = (-1)^m * conj(Y_l^m) via conjugate symmetry
         COMPLEX(KIND=dp), INTENT(OUT) :: YLM((LMAX+1)**2)
         INTEGER(KIND=i4) :: L, M, PSIZE
         REAL(KIND=dp), ALLOCATABLE :: P(:)
-        REAL(KIND=dp) :: NORM
+        REAL(KIND=dp) :: NORM, SIGN_M
 
         PSIZE = (LMAX+1)*(LMAX+2)/2
         ALLOCATE(P(PSIZE))
@@ -574,7 +609,8 @@ C     Y_l^{-m} = (-1)^m * conj(Y_l^m) via conjugate symmetry
      &              P(PLM_INDEX(L, M)) * EXP(j*M*PHI)
             END DO
             DO M = 1, L
-                YLM(YLM_INDEX(L, -M)) = (-1)**M *
+                SIGN_M = 1.0_dp - 2.0_dp * MOD(M, 2)
+                YLM(YLM_INDEX(L, -M)) = SIGN_M *
      &              CONJG(YLM(YLM_INDEX(L, M)))
             END DO
         END DO
@@ -595,7 +631,7 @@ C     GSSH_TH/GPH are the theta/phi components of GRAD_SSH.
         COMPLEX(KIND=dp), INTENT(OUT) :: GSSH_PH((LMAX+1)**2)
         INTEGER(KIND=i4) :: L, M, PSIZE
         REAL(KIND=dp), ALLOCATABLE :: P(:), DP_OUT(:)
-        REAL(KIND=dp)    :: SINTH, NORM
+        REAL(KIND=dp)    :: SINTH, NORM, SIGN_M
         COMPLEX(KIND=dp) :: EPHIM, YP, GTH_P, GPH_P
         PSIZE = (LMAX+1)*(LMAX+2)/2
         ALLOCATE(P(PSIZE), DP_OUT(PSIZE))
@@ -618,9 +654,10 @@ C     GSSH_TH/GPH are the theta/phi components of GRAD_SSH.
             GSSH_TH(YLM_INDEX(L, M)) = GTH_P
             GSSH_PH(YLM_INDEX(L, M)) = GPH_P
             IF (M .GT. 0) THEN
-              YLM_OUT(YLM_INDEX(L,-M)) = (-1)**M * CONJG(YP)
-              GSSH_TH(YLM_INDEX(L,-M)) = (-1)**M * CONJG(GTH_P)
-              GSSH_PH(YLM_INDEX(L,-M)) = (-1)**M * CONJG(GPH_P)
+              SIGN_M = 1.0_dp - 2.0_dp * MOD(M, 2)
+              YLM_OUT(YLM_INDEX(L,-M)) = SIGN_M * CONJG(YP)
+              GSSH_TH(YLM_INDEX(L,-M)) = SIGN_M * CONJG(GTH_P)
+              GSSH_PH(YLM_INDEX(L,-M)) = SIGN_M * CONJG(GPH_P)
             END IF
           END DO
         END DO
