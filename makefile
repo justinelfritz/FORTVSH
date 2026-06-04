@@ -1,17 +1,17 @@
-NAME = my_test.exe
+NAME = vsh_test.exe
 
-BASE = $(HOME)/my/path/to/fortran_VSH
+BASE = $(HOME)/Desktop/magfric/fortran_VSH
 EXEC = $(BASE)/$(NAME)
 OBJD = $(BASE)/obj
 SRCD = $(BASE)/src
 
-F77 = gfortran -O -I $(SRCD)
+F77 = gfortran -O -I $(SRCD) $(SHTOOLSMODPATH) -L $(SHTOOLSLIBPATH) -lSHTOOLS -lfftw3 -lm -llapack -lblas -O3 -o M
 
 FFLAGS = 
 
 VPATH = $(OBJD):$(SRCD)
 
-OBJS = main.o globals.o kinds.o vsh.o
+OBJS = main.o globals.o kinds.o vsh.o tests.o
 
 $(NAME): $(OBJS)
 	@echo Building executable
@@ -22,4 +22,4 @@ $(NAME): $(OBJS)
 	cd $(OBJD); $(F77) -c $<
 
 clean:
-	rm -f terminal* makefile~ *.dat~ obj/*.o $(EXEC)
+	rm -f terminal* makefile~ *.dat~ obj/*.o obj/*.mod $(EXEC)

@@ -473,4 +473,113 @@ C     Compute dot product of two VSH evaluated at theta,phi coordinates
         RETURN
         END FUNCTION GWJ
 
+
+C     Return 1D index for (L,M) in ASSOC_LEGENDRE_ALL output array
+C     SHTOOLS PlmIndex convention: l*(l+1)/2 + m + 1, requires 0<=m<=l
+        FUNCTION PLM_INDEX(L, M)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN) :: L, M
+        INTEGER(KIND=i4) :: PLM_INDEX
+        PLM_INDEX = L*(L+1)/2 + M + 1
+        END FUNCTION PLM_INDEX
+
+C     Return 1D index for (L,M) in SSH_ALL output array, -l<=m<=l
+        FUNCTION YLM_INDEX(L, M)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN) :: L, M
+        INTEGER(KIND=i4) :: YLM_INDEX
+        YLM_INDEX = L**2 + L + M + 1
+        END FUNCTION YLM_INDEX
+
+C     Compute all P_l^m(x) for 0<=l<=lmax, 0<=m<=l using Bonnet recurrence
+C     P indexed by PLM_INDEX(l,m) = l*(l+1)/2 + m + 1
+C     Condon-Shortley convention; output size (lmax+1)*(lmax+2)/2
+        SUBROUTINE ASSOC_LEGENDRE_ALL(P, LMAX, X)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN) :: LMAX
+        REAL(KIND=dp), INTENT(IN) :: X
+        REAL(KIND=dp), INTENT(OUT) :: P((LMAX+1)*(LMAX+2)/2)
+        INTEGER(KIND=i4) :: L, M
+        REAL(KIND=dp) :: SOMX2
+
+        SOMX2 = SQRT((1.0_dp - X) * (1.0_dp + X))
+        P(PLM_INDEX(0, 0)) = 1.0_dp
+
+        DO M = 0, LMAX
+            IF (M .GT. 0)
+     &          P(PLM_INDEX(M, M)) = -(2*M - 1) * SOMX2 *
+     &              P(PLM_INDEX(M-1, M-1))
+            IF (M .LT. LMAX)
+     &          P(PLM_INDEX(M+1, M)) = X * (2*M + 1) *
+     &              P(PLM_INDEX(M, M))
+            DO L = M+2, LMAX
+                P(PLM_INDEX(L, M)) =
+     &              (X*(2*L-1)*P(PLM_INDEX(L-1, M)) -
+     &              (L+M-1)*P(PLM_INDEX(L-2, M))) / (L-M)
+            END DO
+        END DO
+        END SUBROUTINE ASSOC_LEGENDRE_ALL
+
+C     Compute all d/dx P_l^m(x) for 0<=l<=lmax, 0<=m<=l
+C     Requires precomputed P from ASSOC_LEGENDRE_ALL
+C     DP_OUT indexed by PLM_INDEX(l,m); returns 0 at poles (|x|>=1)
+        SUBROUTINE DDX_ASSOC_LEGENDRE_ALL(DP_OUT, P, LMAX, X)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN) :: LMAX
+        REAL(KIND=dp), INTENT(IN) :: X
+        REAL(KIND=dp), INTENT(IN) :: P((LMAX+1)*(LMAX+2)/2)
+        REAL(KIND=dp), INTENT(OUT) :: DP_OUT((LMAX+1)*(LMAX+2)/2)
+        INTEGER(KIND=i4) :: L, M
+        REAL(KIND=dp) :: DOM
+
+        DOM = 1.0_dp - X**2
+
+        DO M = 0, LMAX
+            DO L = M, LMAX
+                IF (ABS(X) .GE. 1.0_dp .OR. L .EQ. 0) THEN
+                    DP_OUT(PLM_INDEX(L, M)) = 0.0_dp
+                ELSE IF (L .EQ. M) THEN
+                    DP_OUT(PLM_INDEX(L, M)) =
+     &                  -L * X * P(PLM_INDEX(L, M)) / DOM
+                ELSE
+                    DP_OUT(PLM_INDEX(L, M)) =
+     &                  ((L+M)*P(PLM_INDEX(L-1, M)) -
+     &                   L*X*P(PLM_INDEX(L, M))) / DOM
+                END IF
+            END DO
+        END DO
+        END SUBROUTINE DDX_ASSOC_LEGENDRE_ALL
+
+C     Compute all Y_l^m(theta,phi) for 0<=l<=lmax, -l<=m<=l
+C     YLM indexed by YLM_INDEX(l,m) = l**2 + l + m + 1
+C     Y_l^{-m} = (-1)^m * conj(Y_l^m) via conjugate symmetry
+        SUBROUTINE SSH_ALL(YLM, LMAX, THETA, PHI)
+        IMPLICIT NONE
+        INTEGER(KIND=i4), INTENT(IN) :: LMAX
+        REAL(KIND=dp), INTENT(IN) :: THETA, PHI
+        COMPLEX(KIND=dp), INTENT(OUT) :: YLM((LMAX+1)**2)
+        INTEGER(KIND=i4) :: L, M, PSIZE
+        REAL(KIND=dp), ALLOCATABLE :: P(:)
+        REAL(KIND=dp) :: NORM
+
+        PSIZE = (LMAX+1)*(LMAX+2)/2
+        ALLOCATE(P(PSIZE))
+        CALL ASSOC_LEGENDRE_ALL(P, LMAX, DCOS(THETA))
+
+        DO L = 0, LMAX
+            DO M = 0, L
+                NORM = DSQRT((2.d0*L+1.d0)/(4.d0*pi)) *
+     &              EXP(0.5_dp*(LOG_FACT(L-M) - LOG_FACT(L+M)))
+                YLM(YLM_INDEX(L, M)) = NORM *
+     &              P(PLM_INDEX(L, M)) * EXP(j*M*PHI)
+            END DO
+            DO M = 1, L
+                YLM(YLM_INDEX(L, -M)) = (-1)**M *
+     &              CONJG(YLM(YLM_INDEX(L, M)))
+            END DO
+        END DO
+
+        DEALLOCATE(P)
+        END SUBROUTINE SSH_ALL
+
       END MODULE VSH
