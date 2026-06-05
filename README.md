@@ -1,6 +1,6 @@
-# fortran_VSH
+# FORTVSH
 
-Fortran module `VSH` containing functions for Legendre polynomials and
+Fortran module containing functions for Legendre polynomials and
 derivatives, scalar spherical harmonics (SSH) and angular derivatives,
 vector spherical harmonics (VSH) and angular derivatives, Clebsch-Gordan
 and Wigner 3j coefficients, and Gauss-Legendre quadrature support.
@@ -9,7 +9,7 @@ Supporting modules `KINDS` and `GLOBALS` provide datatype definitions and
 shared physical constants (π, imaginary unit j).
 
 Please review the LaTeX whitepaper in `/tex/` for normalization conventions
-and sign choices that propagate through all numerical routines.
+and sign choices that propagate through all numerical routines (not yet available).
 
 ---
 
@@ -127,7 +127,7 @@ exist before running `make`.
 
 ## Testing
 
-Running the executable writes all test output to `out/`. Every test writes
+Running the executable writes all test output to `validation/`. Every test writes
 a header line beginning with `#` followed by column labels.
 
 ### Cross-validation tests (Tests 1 and 2)
@@ -153,17 +153,17 @@ All three `absdiff` columns should be ≤ ~10⁻¹⁴.
 
 | Output file | Compares |
 |-------------|----------|
-| `out/batch_alm_cons.dat` | `ASSOC_LEGENDRE_ALL` vs `ASSOC_LEGENDRE` |
-| `out/batch_dalm_cons.dat` | `DDX_ASSOC_LEGENDRE_ALL` vs `DDX_ASSOC_LEGENDRE` |
-| `out/batch_ssh_cons.dat` | `SSH_ALL` vs `SSH` |
-| `out/batch_grad_ssh_cons.dat` | `GRAD_SSH_ALL` vs `GRAD_SSH` |
-| `out/batch_l_ssh_cons.dat` | `L_SSH_ALL` vs `L_SSH` |
-| `out/batch_pvsh_rad_cons.dat` | `PVSH_RAD_ALL` vs `PVSH_RAD` |
-| `out/batch_pvsh_pol_cons.dat` | `PVSH_POL_ALL` vs `PVSH_POL` |
-| `out/batch_pvsh_tor_cons.dat` | `PVSH_TOR_ALL` vs `PVSH_TOR` (l ≥ 1) |
-| `out/batch_vsh_tor_cons.dat` | `VSH_TOR_ALL` vs `VSH_TOR` (l ≥ 1) |
-| `out/batch_vsh_pol_up_cons.dat` | `VSH_POL_UP_ALL` vs `VSH_POL_UP` |
-| `out/batch_vsh_pol_dn_cons.dat` | `VSH_POL_DN_ALL` vs `VSH_POL_DN` |
+| `validation/batch_alm_cons.dat` | `ASSOC_LEGENDRE_ALL` vs `ASSOC_LEGENDRE` |
+| `validation/batch_dalm_cons.dat` | `DDX_ASSOC_LEGENDRE_ALL` vs `DDX_ASSOC_LEGENDRE` |
+| `validation/batch_ssh_cons.dat` | `SSH_ALL` vs `SSH` |
+| `validation/batch_grad_ssh_cons.dat` | `GRAD_SSH_ALL` vs `GRAD_SSH` |
+| `validation/batch_l_ssh_cons.dat` | `L_SSH_ALL` vs `L_SSH` |
+| `validation/batch_pvsh_rad_cons.dat` | `PVSH_RAD_ALL` vs `PVSH_RAD` |
+| `validation/batch_pvsh_pol_cons.dat` | `PVSH_POL_ALL` vs `PVSH_POL` |
+| `validation/batch_pvsh_tor_cons.dat` | `PVSH_TOR_ALL` vs `PVSH_TOR` (l ≥ 1) |
+| `validation/batch_vsh_tor_cons.dat` | `VSH_TOR_ALL` vs `VSH_TOR` (l ≥ 1) |
+| `validation/batch_vsh_pol_up_cons.dat` | `VSH_POL_UP_ALL` vs `VSH_POL_UP` |
+| `validation/batch_vsh_pol_dn_cons.dat` | `VSH_POL_DN_ALL` vs `VSH_POL_DN` |
 
 > `PVSH_TOR` and `VSH_TOR` single-mode functions produce 0/0 at l = 0
 > (the l = 0 toroidal VSH is identically zero). The batch routines correctly
@@ -173,9 +173,9 @@ All three `absdiff` columns should be ≤ ~10⁻¹⁴.
 
 | Output file | Property verified |
 |-------------|-------------------|
-| `out/ssh_ortho.dat` | SSH orthonormality via midpoint quadrature; inner product should be 0 (off-diagonal) or 1 (diagonal) |
-| `out/pvsh_pol_tor_ortho.dat` | `DOT(PVSH_POL, PVSH_TOR) = 0` pointwise for all (l, m, θ); expected value ≤ ~10⁻¹⁵ |
-| `out/vsh_pol_inversion.dat` | VSH_POL_UP/DN invert to PVSH_POL and PVSH_RAD via the orthogonal rotation; columns `max_absdiff_pol` and `max_absdiff_rad` should be ≤ ~10⁻¹⁴ |
+| `validation/ssh_ortho.dat` | SSH orthonormality via midpoint quadrature; inner product should be 0 (off-diagonal) or 1 (diagonal) |
+| `validation/pvsh_pol_tor_ortho.dat` | `DOT(PVSH_POL, PVSH_TOR) = 0` pointwise for all (l, m, θ); expected value ≤ ~10⁻¹⁵ |
+| `validation/vsh_pol_inversion.dat` | VSH_POL_UP/DN invert to PVSH_POL and PVSH_RAD via the orthogonal rotation; columns `max_absdiff_pol` and `max_absdiff_rad` should be ≤ ~10⁻¹⁴ |
 
 ### Interpreting results
 
