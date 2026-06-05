@@ -6,10 +6,6 @@ Independent modules for global declarations and datatype definitions are used
 to enable greater portability and convenience. These are `globals` and `kinds`, 
 respectively.
 
-Please review the LaTeX whitepaper (in `/tex/`) for important information regarding 
-normalization choices and other standards that propagate through the numerical 
-routines. 
-
 ---
 
 To build a test program:
@@ -19,4 +15,6 @@ To build a test program:
 * Update `main.f` to perform the desired test computations
 * Run `make`
 
-WIP - 17 July 2024
+---
+
+This branch is no longer maintained. This branch contains original proof-of-concept functions and subroutines intended to validate behavior, check performance, and identify numerical edge cases. 
