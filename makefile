@@ -15,7 +15,7 @@ $(NAME): $(OBJS)
 	@echo Building executable
 	cd $(OBJD); $(FC) -o $(EXEC) $(OBJS)
 
-.f.o:
+%.o: $(SRCD)/%.f90
 	@echo Building $*.o
 	cd $(OBJD); $(FC) -J $(OBJD) -c $<
 

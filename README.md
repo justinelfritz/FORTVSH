@@ -17,11 +17,11 @@ and sign choices that propagate through all numerical routines (not yet availabl
 
 | File | Module | Purpose |
 |------|--------|---------|
-| `src/kinds.f` | `KINDS` | Kind parameters (`dp`, `i4`) |
-| `src/globals.f` | `GLOBALS` | Shared constants (π, j) |
-| `src/vsh.f` | `VSH` | All spherical harmonic and VSH routines |
-| `src/tests.f` | `TESTS` | Validation and consistency test routines |
-| `src/main.f` | — | Driver: calls test routines, writes output |
+| `src/kinds.f90` | `KINDS` | Kind parameters (`dp`, `i4`) |
+| `src/globals.f90` | `GLOBALS` | Shared constants (π, j) |
+| `src/vsh.f90` | `VSH` | All spherical harmonic and VSH routines |
+| `src/tests.f90` | `TESTS` | Validation and consistency test routines |
+| `src/main.f90` | — | Driver: calls test routines, writes output |
 
 ---
 
@@ -106,7 +106,7 @@ spherical component (r, θ, φ).
 
 ---
 
-## Building
+## Building for custom use
 
 Dependencies: `gfortran`, standard math library. No external libraries required.
 
@@ -114,14 +114,10 @@ Dependencies: `gfortran`, standard math library. No external libraries required.
 make
 ```
 
-The makefile compiles `kinds.f → globals.f → vsh.f → tests.f → main.f`
+The example makefile compiles `kinds.f90 → globals.f90 → vsh.f90 → tests.f90 → main.f90`
 in dependency order and links the executable. Update `NAME` and `BASE` in
-the makefile for your environment. The `obj/` and `out/` directories must
-exist before running `make`.
-
-> **Note:** The makefile currently lists `-lSHTOOLS -lfftw3 -llapack -lblas`
-> as link flags. These libraries are not used by the current code and can be
-> removed if they are not installed.
+the makefile for your environment. The `obj/` and `out/`  and `validation/` directories must
+exist before running `make` if using the example makefile to build for validation.
 
 ---
 
