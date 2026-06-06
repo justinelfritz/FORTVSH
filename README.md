@@ -1,9 +1,9 @@
 # FORTVSH
 
-Fortran module containing functions for Legendre polynomials and
-derivatives, scalar spherical harmonics (SSH) and angular derivatives,
-vector spherical harmonics (VSH) and angular derivatives, Clebsch-Gordan
-and Wigner 3j coefficients, and Gauss-Legendre quadrature support.
+Fortran library for Legendre polynomials and derivatives, scalar spherical
+harmonics (SSH) and angular derivatives, vector spherical harmonics (VSH)
+and angular derivatives, Clebsch-Gordan and Wigner 3j coefficients, and
+Gauss-Legendre quadrature support.
 
 Supporting modules `KINDS` and `GLOBALS` provide datatype definitions and
 shared physical constants (π, imaginary unit j).
@@ -13,19 +13,157 @@ and sign choices that propagate through all numerical routines (not yet availabl
 
 ---
 
-## Source files
+## Requirements
+
+| Tool | Minimum version |
+|------|----------------|
+| gfortran | 9 |
+| CMake | 3.14 |
+
+No external Fortran libraries are required. CMake is the only build system
+dependency. pkg-config is optional (only needed to consume the installed library
+via `pkg-config --cflags --libs FORTVSH`).
+
+---
+
+## Quick start
+
+```bash
+cmake -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+---
+
+## Building from source
+
+An out-of-source build is recommended so that generated files do not mix with
+source files.
+
+```bash
+# Configure (Release mode by default)
+cmake -B build
+
+# Optional: debug build
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+
+# Optional: also build shared library (libvsh.so)
+cmake -B build -DVSH_BUILD_SHARED=ON
+
+# Compile
+cmake --build build
+
+# Run the validation suite
+ctest --test-dir build --output-on-failure
+```
+
+Build artifacts:
+
+| Path | Contents |
+|------|----------|
+| `build/libvsh.a` | Static library |
+| `build/libvsh.so` | Shared library (if `-DVSH_BUILD_SHARED=ON`) |
+| `build/mod/` | Fortran module files (`.mod`) for the installed library |
+| `build/obj/` | Module files for test-only code (not installed) |
+| `build/vsh_test` | Test executable |
+
+---
+
+## Installing
+
+```bash
+cmake --install build --prefix /usr/local
+```
+
+This copies:
+
+| Destination | Contents |
+|-------------|----------|
+| `<prefix>/lib/libvsh.a` | Static library |
+| `<prefix>/include/vsh/` | Module files: `kinds.mod`, `globals.mod`, `vsh.mod`, `vsh_version.mod` |
+| `<prefix>/lib/pkgconfig/fortvsh.pc` | pkg-config file |
+| `<prefix>/lib/cmake/FORTVSH/` | CMake package config files |
+
+---
+
+## Using the library
+
+### From a CMake project
+
+```cmake
+find_package(FORTVSH REQUIRED)
+target_link_libraries(myapp PRIVATE FORTVSH::vsh)
+```
+
+Set `FORTVSH_DIR` (or `CMAKE_PREFIX_PATH`) to the install prefix if
+`find_package` cannot locate the library automatically:
+
+```bash
+cmake -B build -DCMAKE_PREFIX_PATH=/usr/local
+```
+
+### From pkg-config / manual linking
+
+```bash
+# Compiler and linker flags
+pkg-config --cflags --libs FORTVSH
+# → -I/usr/local/include/vsh  -L/usr/local/lib  -lvsh
+
+# Example manual compile
+gfortran $(pkg-config --cflags FORTVSH) mycode.f90 $(pkg-config --libs FORTVSH) -o myapp
+```
+
+### Minimal usage example
+
+```fortran
+PROGRAM EXAMPLE
+  USE VSH,         ONLY: SSH, GRAD_SSH
+  USE VSH_VERSION, ONLY: VERSION_STRING
+  USE KINDS,       ONLY: dp
+  IMPLICIT NONE
+  COMPLEX(KIND=dp) :: Y, GY(3)
+  PRINT *, 'FORTVSH version: ', VERSION_STRING
+  Y  = SSH(2, 1, 1.0_dp, 0.5_dp)       ! Y_2^1(θ=1, φ=0.5)
+  GY = GRAD_SSH(2, 1, 1.0_dp, 0.5_dp)  ! ∇_Ω Y_2^1
+  PRINT *, 'Y_2^1 = ', Y
+END PROGRAM EXAMPLE
+```
+
+---
+
+## Source layout
 
 | File | Module | Purpose |
 |------|--------|---------|
-| `src/kinds.f90` | `KINDS` | Kind parameters (`dp`, `i4`) |
+| `src/kinds.f90` | `KINDS` | Kind parameters (`sp`, `dp`, `i4`, …) |
 | `src/globals.f90` | `GLOBALS` | Shared constants (π, j) |
 | `src/vsh.f90` | `VSH` | All spherical harmonic and VSH routines |
-| `src/tests.f90` | `TESTS` | Validation and consistency test routines |
-| `src/main.f90` | — | Driver: calls test routines, writes output |
+| `src/vsh_version.f90.in` | `VSH_VERSION` | Version constants; filled by CMake at configure time |
+| `src/tests.f90` | `TESTS` | Validation and consistency test routines (not installed) |
+| `src/main.f90` | — | Driver: calls test routines, writes output (not installed) |
+
+`TESTS` and `main.f90` are compiled only into the `vsh_test` executable and
+are not part of `libvsh.a` or any installed target.
 
 ---
 
 ## API reference
+
+All public names are generic interfaces: the current implementations are
+double-precision (`dp`) specifics named `X_DP`. Adding a single-precision
+variant later requires only writing `X_SP` and inserting
+`MODULE PROCEDURE X_SP` into the existing `INTERFACE` block — no call-site
+changes.
+
+### Version
+
+| Name | Type | Description |
+|------|------|-------------|
+| `VSH_VERSION % VERSION_STRING` | `CHARACTER(LEN=*)` | Full version string, e.g. `"0.1.0"` |
+| `VSH_VERSION % VERSION_MAJOR` | `INTEGER(i4)` | Major version |
+| `VSH_VERSION % VERSION_MINOR` | `INTEGER(i4)` | Minor version |
+| `VSH_VERSION % VERSION_PATCH` | `INTEGER(i4)` | Patch version |
 
 ### Legendre polynomials
 
@@ -34,8 +172,7 @@ and sign choices that propagate through all numerical routines (not yet availabl
 | `LEGENDRE(L, X)` | Function → `dp` | Legendre polynomial P_l(x) |
 | `DDX_LEGENDRE(L, X)` | Function → `dp` | d/dx P_l(x) |
 | `ASSOC_LEGENDRE(L, K, X)` | Function → `dp` | Associated Legendre P_l^k(x), Condon-Shortley |
-| `ASSOC_LEGENDRE_AND_DERIV(L, K, X, PLK, DPLK)` | Subroutine | P_l^k(x) and d/dx P_l^k(x) in one recurrence pass |
-| `DDX_ASSOC_LEGENDRE(L, K, X)` | Function → `dp` | d/dx P_l^k(x) (thin wrapper over `ASSOC_LEGENDRE_AND_DERIV`) |
+| `DDX_ASSOC_LEGENDRE(L, K, X)` | Function → `dp` | d/dx P_l^k(x) |
 
 ### Batch Legendre (0 ≤ l ≤ lmax, 0 ≤ m ≤ l)
 
@@ -106,30 +243,21 @@ spherical component (r, θ, φ).
 
 ---
 
-## Building for custom use
-
-Dependencies: `gfortran`, standard math library. No external libraries required.
-
-```
-make
-```
-
-The example makefile compiles `kinds.f90 → globals.f90 → vsh.f90 → tests.f90 → main.f90`
-in dependency order and links the executable. Update `NAME` and `BASE` in
-the makefile for your environment. The `obj/` and `out/`  and `validation/` directories must
-exist before running `make` if using the example makefile to build for validation.
-
----
-
 ## Testing
 
-Running the executable writes all test output to `validation/`. Every test writes
-a header line beginning with `#` followed by column labels.
+The validation suite runs automatically via `ctest`:
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+The test executable writes all output to `validation/`. Every output file
+begins with a `#` header line followed by column labels.
 
 ### Cross-validation tests (Tests 1 and 2)
 
-`TEST1.DAT` and `TEST2.DAT` in `validation/` compare three independent
-computations of the same VSH inner product expression:
+`TEST1.DAT` and `TEST2.DAT` compare three independent computations of the
+same VSH inner-product expression:
 
 | Column | Contents |
 |--------|----------|
