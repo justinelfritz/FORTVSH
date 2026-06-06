@@ -272,22 +272,20 @@ All three columns should agree to near machine precision across all θ.
 
 Each `BATCH_*_CONS` subroutine compares the batch `*_ALL` output against
 the corresponding single-mode function for every `(l, m, θ)` in the grid.
-Output columns: `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph`.
-All three `absdiff` columns should be ≤ ~10⁻¹⁴.
 
-| Output file | Compares |
-|-------------|----------|
-| `validation/batch_alm_cons.dat` | `ASSOC_LEGENDRE_ALL` vs `ASSOC_LEGENDRE` |
-| `validation/batch_dalm_cons.dat` | `DDX_ASSOC_LEGENDRE_ALL` vs `DDX_ASSOC_LEGENDRE` |
-| `validation/batch_ssh_cons.dat` | `SSH_ALL` vs `SSH` |
-| `validation/batch_grad_ssh_cons.dat` | `GRAD_SSH_ALL` vs `GRAD_SSH` |
-| `validation/batch_l_ssh_cons.dat` | `L_SSH_ALL` vs `L_SSH` |
-| `validation/batch_pvsh_rad_cons.dat` | `PVSH_RAD_ALL` vs `PVSH_RAD` |
-| `validation/batch_pvsh_pol_cons.dat` | `PVSH_POL_ALL` vs `PVSH_POL` |
-| `validation/batch_pvsh_tor_cons.dat` | `PVSH_TOR_ALL` vs `PVSH_TOR` (l ≥ 1) |
-| `validation/batch_vsh_tor_cons.dat` | `VSH_TOR_ALL` vs `VSH_TOR` (l ≥ 1) |
-| `validation/batch_vsh_pol_up_cons.dat` | `VSH_POL_UP_ALL` vs `VSH_POL_UP` |
-| `validation/batch_vsh_pol_dn_cons.dat` | `VSH_POL_DN_ALL` vs `VSH_POL_DN` |
+| Output file | Compares | Columns |
+|-------------|----------|---------|
+| `validation/batch_alm_cons.dat` | `ASSOC_LEGENDRE_ALL` vs `ASSOC_LEGENDRE` | `L  M  X  P_batch  P_single  abs_diff` |
+| `validation/batch_dalm_cons.dat` | `DDX_ASSOC_LEGENDRE_ALL` vs `DDX_ASSOC_LEGENDRE` | `L  M  X  dP_batch  dP_single  abs_diff` |
+| `validation/batch_ssh_cons.dat` | `SSH_ALL` vs `SSH` | `L  M  theta  phi  re(batch)  im(batch)  re(single)  im(single)` |
+| `validation/batch_grad_ssh_cons.dat` | `GRAD_SSH_ALL` vs `GRAD_SSH` | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
+| `validation/batch_l_ssh_cons.dat` | `L_SSH_ALL` vs `L_SSH` | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
+| `validation/batch_pvsh_rad_cons.dat` | `PVSH_RAD_ALL` vs `PVSH_RAD` | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
+| `validation/batch_pvsh_pol_cons.dat` | `PVSH_POL_ALL` vs `PVSH_POL` | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
+| `validation/batch_pvsh_tor_cons.dat` | `PVSH_TOR_ALL` vs `PVSH_TOR` (l ≥ 1) | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
+| `validation/batch_vsh_tor_cons.dat` | `VSH_TOR_ALL` vs `VSH_TOR` (l ≥ 1) | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
+| `validation/batch_vsh_pol_up_cons.dat` | `VSH_POL_UP_ALL` vs `VSH_POL_UP` | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
+| `validation/batch_vsh_pol_dn_cons.dat` | `VSH_POL_DN_ALL` vs `VSH_POL_DN` | `L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph` |
 
 > `PVSH_TOR` and `VSH_TOR` single-mode functions produce 0/0 at l = 0
 > (the l = 0 toroidal VSH is identically zero). The batch routines correctly
@@ -303,6 +301,23 @@ All three `absdiff` columns should be ≤ ~10⁻¹⁴.
 
 ### Interpreting results
 
-All test output is plain-text and can be inspected directly or plotted.
-A passing run has no NaN or Inf values, and all `absdiff` / residual
-columns are at or below double-precision rounding (~10⁻¹⁴ to 10⁻¹⁵).
+`vsh_test` checks every test against a numerical threshold and prints a
+per-test `PASS` / `FAIL` line followed by an overall `RESULT:` summary.
+ctest marks the run failed if the executable exits nonzero, so no manual
+inspection of the `.dat` files is needed for a go/no-go decision. The
+output files remain available for plotting or further analysis.
+
+### Optional regression comparison
+
+Committed reference outputs live in `validation/reference/`. Enable the
+comparison test with:
+
+```bash
+cmake -B build -DVSH_REGRESSION_TEST=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+This adds a `vsh_regression` ctest that runs `cmake/check_regression.py`,
+which compares every `validation/*.dat` file against its reference
+counterpart to a relative tolerance of 10⁻¹⁰.
