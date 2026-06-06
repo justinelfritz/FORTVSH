@@ -70,7 +70,7 @@ CONTAINS
 
   FUNCTION ASSOC_LEGENDRE(L, K, X)
       IMPLICIT NONE
-      INTEGER :: L, K, ABSK, I
+      INTEGER(KIND=i4) :: L, K, ABSK, I
       REAL(KIND=dp) :: X, ASSOC_LEGENDRE
       REAL(KIND=dp) :: Pmm, Pmm1, Plm, somx2
 
@@ -450,7 +450,8 @@ CONTAINS
 
 !     Compute log(factorial()) for stability  
   FUNCTION LOG_FACT(N)
-      INTEGER, INTENT(IN) :: N
+      IMPLICIT NONE
+      INTEGER(KIND=i4), INTENT(IN) :: N
       REAL(KIND=dp) :: LOG_FACT
       IF (N <= 1) THEN
           LOG_FACT = 0.0_dp
