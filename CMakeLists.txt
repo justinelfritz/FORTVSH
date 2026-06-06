@@ -16,11 +16,19 @@ add_compile_options(-O3)
 option(VSH_BUILD_SHARED  "Build shared library (libvsh.so) in addition to static" OFF)
 option(VSH_INSTALL_TESTS "Install the vsh_test executable"                         OFF)
 
+# ── Generate version Fortran module ──────────────────────────────────────────
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/vsh_version.f90.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/src/vsh_version.f90"
+  @ONLY
+)
+
 # ── Library object compilation (compile once for both static + shared) ────────
 add_library(vsh_objects OBJECT
   src/kinds.f90
   src/globals.f90
   src/vsh.f90
+  "${CMAKE_CURRENT_BINARY_DIR}/src/vsh_version.f90"
 )
 set_target_properties(vsh_objects PROPERTIES
   POSITION_INDEPENDENT_CODE ON
