@@ -11,6 +11,44 @@ PATCH for bug fixes · MINOR for new API additions · MAJOR for breaking changes
 
 ---
 
+## [0.2.0] — 2026-06-06
+
+### Added
+- Formal pass/fail exit code from `vsh_test`: all 14 test subroutines in
+  `tests.f90` accept a new `INTEGER(KIND=i4), INTENT(OUT) :: STATUS` argument
+  and evaluate numerical thresholds internally (relative error for
+  `BATCH_ALM_CONS` / `BATCH_DALM_CONS`; absolute error for all others;
+  quadrature-aware tolerance for `SSH_ORTHO`).
+- `main.f90` rewritten as a proper test driver: collects `STATUS` from each
+  subroutine, checks `TEST1` / `TEST2` agreement with `MAXVAL(ABS(...))`,
+  prints a per-test `PASS` / `FAIL` line, and exits via `STOP 1` if any test
+  fails — making ctest a meaningful go/no-go signal.
+- CMake fixture `create_validation_dir` runs before `vsh_validation` and
+  creates `validation/` if absent, so `ctest` succeeds in a fresh clone.
+- `VSH_REGRESSION_TEST` CMake option (default `OFF`): when enabled, adds a
+  `vsh_regression` ctest that compares every generated `.dat` file against its
+  committed reference counterpart using `cmake/check_regression.py`.
+- `cmake/check_regression.py`: Python script for column-by-column numeric
+  comparison of two directories of `.dat` files to a relative tolerance of
+  10⁻¹⁰.
+- `validation/reference/`: 16 committed reference `.dat` files serving as the
+  regression baseline.
+- `py/compute_validation.py`: Python script that reads all validation output
+  files, computes per-test maximum errors, and writes
+  `validation/validation_values.tex` — a set of `\newcommand` definitions for
+  direct inclusion in the whitepaper.
+- `py/plotError.py`: matplotlib script for plotting `TEST1` percentage
+  differences between the analytic and VSH-inner-product results.
+
+### Changed
+- `validation/*.dat` added to `.gitignore`; generated outputs are no longer
+  tracked (reference copies live in `validation/reference/`).
+- README Testing section updated: automated pass/fail output described,
+  `batch_ssh_cons.dat` column layout corrected, optional regression comparison
+  documented.
+
+---
+
 ## [0.1.0] — 2026-06-06
 
 First versioned release. The VSH mathematics are unchanged from the original
