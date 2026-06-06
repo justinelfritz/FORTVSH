@@ -69,10 +69,39 @@ set_target_properties(vsh_test PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
+add_test(NAME create_validation_dir
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/validation"
+)
+set_tests_properties(create_validation_dir PROPERTIES
+  FIXTURES_SETUP vsh_validation_dirs
+)
+
 add_test(NAME vsh_validation
   COMMAND vsh_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+set_tests_properties(vsh_validation PROPERTIES
+  FIXTURES_REQUIRED vsh_validation_dirs
+)
+
+option(VSH_REGRESSION_TEST
+  "Compare output .dat files against committed reference files in validation/reference/"
+  OFF
+)
+if(VSH_REGRESSION_TEST)
+  find_package(Python3 REQUIRED)
+  add_test(NAME vsh_regression
+    COMMAND ${Python3_EXECUTABLE}
+      "${CMAKE_SOURCE_DIR}/cmake/check_regression.py"
+      "${CMAKE_SOURCE_DIR}/validation/reference"
+      "${CMAKE_SOURCE_DIR}/validation"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties(vsh_regression PROPERTIES
+    DEPENDS vsh_validation
+    FIXTURES_REQUIRED vsh_validation_dirs
+  )
+endif()
 
 # ── FortranCInterface: name-mangling header for future C/Python bindings ──────
 include(FortranCInterface)

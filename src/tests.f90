@@ -157,15 +157,17 @@ CONTAINS
 
   !  Test ASSOC_LEGENDRE_ALL against individual ASSOC_LEGENDRE calls
   !  Columns: L  M  X  P_batch  P_single  abs_diff
-  SUBROUTINE BATCH_ALM_CONS(LMAX, NX, OUTUNIT)
+  SUBROUTINE BATCH_ALM_CONS(LMAX, NX, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NX, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, IX, PSIZE
-  REAL(KIND=dp) :: X, DX, P_SINGLE
+  REAL(KIND=dp) :: X, DX, P_SINGLE, SCALE, REL_ERR
   REAL(KIND=dp), ALLOCATABLE :: P_BATCH(:)
 
   PSIZE = (LMAX+1)*(LMAX+2)/2
   ALLOCATE(P_BATCH(PSIZE))
+  STATUS = 0
   DX = 1.8_dp / (NX - 1)
 
   WRITE(OUTUNIT, '(A)') '# L  M  X  P_batch  P_single  abs_diff'
@@ -178,6 +180,9 @@ CONTAINS
         WRITE(OUTUNIT, *) L, M, X, &
             P_BATCH(PLM_INDEX(L, M)), P_SINGLE, &
             ABS(P_BATCH(PLM_INDEX(L, M)) - P_SINGLE)
+        SCALE = MAX(ABS(P_SINGLE), 1.0_dp)
+        REL_ERR = ABS(P_BATCH(PLM_INDEX(L, M)) - P_SINGLE) / SCALE
+        IF (REL_ERR > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -188,15 +193,17 @@ CONTAINS
 
   !  Test DDX_ASSOC_LEGENDRE_ALL against individual DDX_ASSOC_LEGENDRE calls
   !  Columns: L  M  X  dP_batch  dP_single  abs_diff
-  SUBROUTINE BATCH_DALM_CONS(LMAX, NX, OUTUNIT)
+  SUBROUTINE BATCH_DALM_CONS(LMAX, NX, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NX, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, IX, PSIZE
-  REAL(KIND=dp) :: X, DX, DP_SINGLE
+  REAL(KIND=dp) :: X, DX, DP_SINGLE, SCALE, REL_ERR
   REAL(KIND=dp), ALLOCATABLE :: P_BATCH(:), DP_BATCH(:)
 
   PSIZE = (LMAX+1)*(LMAX+2)/2
   ALLOCATE(P_BATCH(PSIZE), DP_BATCH(PSIZE))
+  STATUS = 0
   DX = 1.8_dp / (NX - 1)
 
   WRITE(OUTUNIT, '(A)') '# L  M  X  dP_batch  dP_single  abs_diff'
@@ -210,6 +217,9 @@ CONTAINS
         WRITE(OUTUNIT, *) L, M, X, &
             DP_BATCH(PLM_INDEX(L, M)), DP_SINGLE, &
             ABS(DP_BATCH(PLM_INDEX(L, M)) - DP_SINGLE)
+        SCALE = MAX(ABS(DP_SINGLE), 1.0_dp)
+        REL_ERR = ABS(DP_BATCH(PLM_INDEX(L, M)) - DP_SINGLE) / SCALE
+        IF (REL_ERR > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -220,9 +230,10 @@ CONTAINS
 
   !  Test SSH_ALL against individual SSH calls
   !  Columns: L  M  theta  phi  re(batch)  im(batch)  re(single)  im(single)
-  SUBROUTINE BATCH_SSH_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_SSH_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp) :: Y_SINGLE
@@ -230,6 +241,7 @@ CONTAINS
 
   NYLM = (LMAX+1)**2
   ALLOCATE(YLM(NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
 
@@ -246,6 +258,7 @@ CONTAINS
             DREAL(YLM(YLM_INDEX(L, M))), &
             DIMAG(YLM(YLM_INDEX(L, M))), &
             DREAL(Y_SINGLE), DIMAG(Y_SINGLE)
+        IF (ABS(YLM(YLM_INDEX(L,M)) - Y_SINGLE) > 1.0E-13_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -257,9 +270,10 @@ CONTAINS
   !  Verify orthonormality of SSH_ALL using midpoint quadrature in u=cos(theta)
   !  Phi integral is done analytically (= 2*pi for matching m, 0 otherwise)
   !  Writes upper triangle of inner product matrix: L1  M  L2  integral  expected
-  SUBROUTINE SSH_ORTHO(LMAX, NQUAD, OUTUNIT)
+  SUBROUTINE SSH_ORTHO(LMAX, NQUAD, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NQUAD, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L1, L2, M, IQ, PSIZE, EXPECTED
   REAL(KIND=dp) :: U, DU, N_L1M, N_L2M, FULL_INT
   REAL(KIND=dp), ALLOCATABLE :: P(:), ORTHO(:,:,:)
@@ -267,6 +281,7 @@ CONTAINS
   PSIZE = (LMAX+1)*(LMAX+2)/2
   ALLOCATE(P(PSIZE))
   ALLOCATE(ORTHO(0:LMAX, 0:LMAX, 0:LMAX))
+  STATUS = 0
   ORTHO = 0.0_dp
   DU = 2.0_dp / NQUAD
 
@@ -301,6 +316,11 @@ CONTAINS
           EXPECTED = 0
         END IF
         WRITE(OUTUNIT, *) L1, M, L2, FULL_INT, EXPECTED
+        IF (L1 .EQ. L2) THEN
+          IF (ABS(FULL_INT - 1.0_dp) > 1.0E-3_dp) STATUS = 1
+        ELSE
+          IF (ABS(FULL_INT) > 1.0E-3_dp) STATUS = 1
+        END IF
       END DO
     END DO
   END DO
@@ -311,15 +331,17 @@ CONTAINS
 
   !  Test GRAD_SSH_ALL against GRAD_SSH for each (l,m,theta)
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_GRAD_SSH_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_GRAD_SSH_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -334,6 +356,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -343,15 +368,17 @@ CONTAINS
 
   !  Test L_SSH_ALL against L_SSH for each (l,m,theta)
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_L_SSH_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_L_SSH_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -366,6 +393,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -375,15 +405,17 @@ CONTAINS
 
   !  Test PVSH_RAD_ALL against PVSH_RAD for each (l,m,theta)
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_PVSH_RAD_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_PVSH_RAD_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -398,6 +430,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -407,15 +442,17 @@ CONTAINS
 
   !  Test PVSH_POL_ALL against PVSH_POL for each (l,m,theta)
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_PVSH_POL_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_PVSH_POL_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -430,6 +467,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -440,15 +480,17 @@ CONTAINS
   !  Test PVSH_TOR_ALL against PVSH_TOR for l>=1 (single-mode PVSH_TOR
   !  has a 0/0 form at l=0 that the batch routine resolves to zero)
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_PVSH_TOR_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_PVSH_TOR_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -463,6 +505,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -472,15 +517,17 @@ CONTAINS
 
   !  Test VSH_TOR_ALL against VSH_TOR for l>=1
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_VSH_TOR_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_VSH_TOR_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -495,6 +542,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -504,15 +554,17 @@ CONTAINS
 
   !  Test VSH_POL_UP_ALL against VSH_POL_UP for each (l,m,theta)
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_VSH_POL_UP_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_VSH_POL_UP_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -527,6 +579,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -536,15 +591,17 @@ CONTAINS
 
   !  Test VSH_POL_DN_ALL against VSH_POL_DN for each (l,m,theta)
   !  Columns: L  M  theta  phi  absdiff_r  absdiff_th  absdiff_ph
-  SUBROUTINE BATCH_VSH_POL_DN_CONS(LMAX, NTH, OUTUNIT)
+  SUBROUTINE BATCH_VSH_POL_DN_CONS(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp), DIMENSION(3) :: VS
   COMPLEX(KIND=dp), ALLOCATABLE :: OUT(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(OUT(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -559,6 +616,9 @@ CONTAINS
             ABS(OUT(1,YLM_INDEX(L,M))-VS(1)), &
             ABS(OUT(2,YLM_INDEX(L,M))-VS(2)), &
             ABS(OUT(3,YLM_INDEX(L,M))-VS(3))
+        IF (ABS(OUT(1,YLM_INDEX(L,M))-VS(1)) > 1.0E-12_dp .OR. &
+            ABS(OUT(2,YLM_INDEX(L,M))-VS(2)) > 1.0E-12_dp .OR. &
+            ABS(OUT(3,YLM_INDEX(L,M))-VS(3)) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -570,15 +630,17 @@ CONTAINS
   !  DOT(PVSH_POL(l,m), PVSH_TOR(l,m)) = 0 for all l>=1, m, theta, phi.
   !  Verified analytically; any nonzero value indicates numerical error.
   !  Columns: L  M  theta  phi  |DOT(PVSH_POL, PVSH_TOR)|
-  SUBROUTINE PVSH_POL_TOR_ORTHO(LMAX, NTH, OUTUNIT)
+  SUBROUTINE PVSH_POL_TOR_ORTHO(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, ITH, NYLM, IDX
   REAL(KIND=dp) :: THETA, PHI, DTH
   COMPLEX(KIND=dp) :: DOTVAL
   COMPLEX(KIND=dp), ALLOCATABLE :: POL(:,:), TOR(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(POL(3, NYLM), TOR(3, NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -592,6 +654,7 @@ CONTAINS
         IDX = YLM_INDEX(L, M)
         DOTVAL = DOT(POL(:,IDX), TOR(:,IDX))
         WRITE(OUTUNIT, *) L, M, THETA, PHI, ABS(DOTVAL)
+        IF (ABS(DOTVAL) > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
@@ -603,9 +666,10 @@ CONTAINS
   !    sqrt(l/(2l+1))*VSH_POL_UP + sqrt((l+1)/(2l+1))*VSH_POL_DN = PVSH_POL
   !   -sqrt((l+1)/(2l+1))*VSH_POL_UP + sqrt(l/(2l+1))*VSH_POL_DN = PVSH_RAD
   !  Columns: L  M  theta  phi  max_absdiff_pol  max_absdiff_rad
-  SUBROUTINE VSH_POL_INVERSION(LMAX, NTH, OUTUNIT)
+  SUBROUTINE VSH_POL_INVERSION(LMAX, NTH, OUTUNIT, STATUS)
   IMPLICIT NONE
   INTEGER(KIND=i4), INTENT(IN) :: LMAX, NTH, OUTUNIT
+  INTEGER(KIND=i4), INTENT(OUT) :: STATUS
   INTEGER(KIND=i4) :: L, M, C, ITH, NYLM, IDX
   REAL(KIND=dp) :: THETA, PHI, DTH, SC_POL, SC_RAD
   REAL(KIND=dp) :: DIFF_POL, DIFF_RAD
@@ -613,6 +677,7 @@ CONTAINS
   COMPLEX(KIND=dp), ALLOCATABLE :: POL(:,:), RAD(:,:)
   NYLM = (LMAX+1)**2
   ALLOCATE(UP(3,NYLM), DN(3,NYLM), POL(3,NYLM), RAD(3,NYLM))
+  STATUS = 0
   DTH = pi / (NTH + 1)
   PHI = pi / 4.d0
   WRITE(OUTUNIT,'(A)') &
@@ -637,6 +702,7 @@ CONTAINS
              -SC_RAD*UP(C,IDX) + SC_POL*DN(C,IDX) - RAD(C,IDX)))
         END DO
         WRITE(OUTUNIT, *) L, M, THETA, PHI, DIFF_POL, DIFF_RAD
+        IF (DIFF_POL > 1.0E-12_dp .OR. DIFF_RAD > 1.0E-12_dp) STATUS = 1
       END DO
     END DO
   END DO
