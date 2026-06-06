@@ -11,8 +11,9 @@ CONTAINS
 !     Compute Factorial k! for k>=0
   FUNCTION FACTORIAL(K)
   IMPLICIT NONE
+  INTEGER(KIND=i4), INTENT(IN) :: K
   REAL(KIND=dp) :: FACTORIAL
-  INTEGER(KIND=i4) :: I,K
+  INTEGER(KIND=i4) :: I
   FACTORIAL = 1.0d0
   DO I = 1,K
       FACTORIAL = I * FACTORIAL
@@ -24,9 +25,11 @@ CONTAINS
 !     Compute Legendre polynomial P_l(x) order l at -1<=x<=+1
   FUNCTION LEGENDRE(L,X)       
   IMPLICIT NONE
-  REAL(KIND=dp) :: P0,PIM1,PIM2       
-  REAL(KIND=dp) :: FI,X,LEGENDRE  
-  INTEGER(KIND=I4) :: I,L
+  REAL(KIND=dp), INTENT(IN) :: X
+  INTEGER(KIND=I4), INTENT(IN) :: L
+  REAL(KIND=dp) :: P0,PIM1,PIM2
+  REAL(KIND=dp) :: FI,LEGENDRE
+  INTEGER(KIND=I4) :: I
 !     CHECK FOR VALID VALUES OF N AND X HERE BEFORE PROCEEDING C 
 !     PROCEEDING WITH CALCULATIONS       
   IF (L.EQ.0) THEN         
@@ -51,8 +54,9 @@ CONTAINS
 !     Compute d/dx of Legendre polynomial P_l(x) order l at -1<=x<=+1
   FUNCTION DDX_LEGENDRE(L,X)
   IMPLICIT NONE
-  REAL(KIND=dp) :: X,DDX_LEGENDRE
-  INTEGER(KIND=i4) :: L
+  REAL(KIND=dp), INTENT(IN) :: X
+  INTEGER(KIND=i4), INTENT(IN) :: L
+  REAL(KIND=dp) :: DDX_LEGENDRE
   IF (L.EQ.0) THEN
       DDX_LEGENDRE=0.d0
   ELSEIF (L.EQ.1) THEN
@@ -70,8 +74,10 @@ CONTAINS
 
   FUNCTION ASSOC_LEGENDRE(L, K, X)
       IMPLICIT NONE
-      INTEGER(KIND=i4) :: L, K, ABSK, I
-      REAL(KIND=dp) :: X, ASSOC_LEGENDRE
+      INTEGER(KIND=i4), INTENT(IN) :: L, K
+      REAL(KIND=dp), INTENT(IN) :: X
+      INTEGER(KIND=i4) :: ABSK, I
+      REAL(KIND=dp) :: ASSOC_LEGENDRE
       REAL(KIND=dp) :: Pmm, Pmm1, Plm, somx2
 
       ABSK = ABS(K)
@@ -181,8 +187,9 @@ CONTAINS
 !     Ylk = sqrt{(2l+1)/4pi}sqrt{(l-k)!/(l+k)!}P_l^k*exp(i k phi)
   FUNCTION SSH(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI,NORM
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
+  REAL(KIND=dp) :: NORM
   COMPLEX(KIND=dp) :: SSH
   NORM = DSQRT((2.d0*L+1.d0)/(4.d0*pi))* &
       EXP(0.5_dp*(LOG_FACT(L-K)-LOG_FACT(L+K)))
@@ -193,8 +200,9 @@ CONTAINS
 !     Compute angular gradient of scalar spherical harmonic Ylk at 0<=theta<=pi, 0<=phi<=2pi
   FUNCTION GRAD_SSH(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
+  REAL(KIND=dp) :: SINTH,NORM,PLK,DPLK
   COMPLEX(KIND=dp) :: EPHIM, YLM
   COMPLEX(KIND=dp), DIMENSION(3) :: GRAD_SSH
   SINTH = DSIN(THETA)
@@ -217,8 +225,9 @@ CONTAINS
 !     Compute rhat X angular gradient of scalar spherical harmonic Ylk at 0<=theta<=pi, 0<=phi<=2pi
   FUNCTION L_SSH(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
+  REAL(KIND=dp) :: SINTH,NORM,PLK,DPLK
   COMPLEX(KIND=dp) :: EPHIM, YLM
   COMPLEX(KIND=dp), DIMENSION(3) :: L_SSH
   SINTH = DSIN(THETA)
@@ -241,8 +250,8 @@ CONTAINS
 !     Compute longitudinal/radial component of polar vector spherical harmonic Y_(L,K)^(-1) = rhat.Ylm
   FUNCTION PVSH_RAD(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
   COMPLEX(KIND=dp) :: YLM
   COMPLEX(KIND=dp), DIMENSION(3) :: PVSH_RAD
   YLM = SSH(L,K,THETA,PHI)
@@ -256,8 +265,9 @@ CONTAINS
 !     Compute transverse/toroidal component of polar vector spherical harmonic Y_(L,K)^(0) ~ L(SSH)
   FUNCTION PVSH_TOR(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK,SCALE
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
+  REAL(KIND=dp) :: SINTH,NORM,PLK,DPLK,SCALE
   COMPLEX(KIND=dp) :: EPHIM,YLM,GTH,GPH
   COMPLEX(KIND=dp), DIMENSION(3) :: PVSH_TOR
   PVSH_TOR(1) = DCMPLX(0.d0, 0.d0)
@@ -321,8 +331,8 @@ CONTAINS
 !     Compute transverse/toroidal component of standard vector spherical harmonic Y_(L,K)^L
   FUNCTION VSH_TOR(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
   COMPLEX(KIND=dp) :: YLM
   COMPLEX(KIND=dp), DIMENSION(3) :: VSH_TOR
   VSH_TOR = PVSH_TOR(L,K,THETA,PHI)
@@ -333,8 +343,9 @@ CONTAINS
 !     Compute transverse component of standard vector spherical harmonic Y_(L,K)^L-1
   FUNCTION VSH_POL_DN(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK,SC1,SC23
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
+  REAL(KIND=dp) :: SINTH,NORM,PLK,DPLK,SC1,SC23
   COMPLEX(KIND=dp) :: EPHIM,YLM,GTH,GPH
   COMPLEX(KIND=dp), DIMENSION(3) :: VSH_POL_DN
   VSH_POL_DN(1) = DCMPLX(0.d0, 0.d0)
@@ -366,8 +377,9 @@ CONTAINS
 !     Compute transverse component of polar vector spherical harmonic Y_(L,K)^L+1
   FUNCTION VSH_POL_UP(L,K,THETA,PHI)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: L,K
-  REAL(KIND=dp) :: THETA,PHI,SINTH,NORM,PLK,DPLK,SC1,SC23
+  INTEGER(KIND=i4), INTENT(IN) :: L,K
+  REAL(KIND=dp), INTENT(IN) :: THETA,PHI
+  REAL(KIND=dp) :: SINTH,NORM,PLK,DPLK,SC1,SC23
   COMPLEX(KIND=dp) :: EPHIM,YLM,GTH,GPH
   COMPLEX(KIND=dp), DIMENSION(3) :: VSH_POL_UP
   SINTH = DSIN(THETA)
@@ -399,7 +411,8 @@ CONTAINS
 !     Adapted from David Simpson (NASA GSFC)
   FUNCTION CGCOEFF(J1,M1,J2,M2,J3,M3)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: J1,M1,J2,M2,J3,M3,K,KMIN,KMAX
+  INTEGER(KIND=i4), INTENT(IN) :: J1,M1,J2,M2,J3,M3
+  INTEGER(KIND=i4) :: K,KMIN,KMAX
   REAL(KIND=dp) :: SUMK,TERM,CGCOEFF
 
   IF ((J3 .LT. ABS(J1-J2)) .OR. &
@@ -504,7 +517,8 @@ CONTAINS
 !     Compute Wigner 3j symbol
   FUNCTION SYMBOL3J(J1,M1,J2,M2,J3,M3)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: J1,M1,J2,M2,J3,M3,K
+  INTEGER(KIND=i4), INTENT(IN) :: J1,M1,J2,M2,J3,M3
+  INTEGER(KIND=i4) :: K
   REAL(KIND=dp) :: TERM,CG,SYMBOL3J
   TERM = (-1)**(J3+M3+NINT(2.d0*J1))/DSQRT(2.d0*J3+1.d0)
   CG = CGCOEFF(J1,-M1,J2,-M2,J3,M3)
@@ -521,7 +535,7 @@ CONTAINS
 !     Compute dot product of two VSH evaluated at theta,phi coordinates
   FUNCTION DOT(VSH1, VSH2)
   IMPLICIT NONE
-  COMPLEX(KIND=dp), DIMENSION(3) :: VSH1, VSH2
+  COMPLEX(KIND=dp), DIMENSION(3), INTENT(IN) :: VSH1, VSH2
   COMPLEX(KIND=dp) :: DOT
   DOT = VSH1(1)*VSH2(1) + VSH1(2)*VSH2(2) + VSH1(3)*VSH2(3)
   RETURN
@@ -530,7 +544,7 @@ CONTAINS
 
   FUNCTION GWI(J1,M1,J2,M2,L,M)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: J1,M1,J2,M2,L,M
+  INTEGER(KIND=i4), INTENT(IN) :: J1,M1,J2,M2,L,M
   COMPLEX(KIND=dp) :: GWI
   GWI=DSQRT((2.d0*J1+1.d0)*(2.d0*J2+1.d0)/(2.d0*L+1.d0)/4.d0/pi)* &
     CGCOEFF(J1,0,J2,0,L,0)*CGCOEFF(J1,M1,J2,M2,L,M)
@@ -540,7 +554,7 @@ CONTAINS
 
   FUNCTION GWJ(J1,M1,J2,M2,L,M)
   IMPLICIT NONE
-  INTEGER(KIND=i4) :: J1,M1,J2,M2,L,M
+  INTEGER(KIND=i4), INTENT(IN) :: J1,M1,J2,M2,L,M
   COMPLEX(KIND=dp) :: GWJ
   GWJ=-DSQRT((2.d0*J1+1.d0)*(2.d0*J2+1.d0)/(2.d0*L+1.d0)/4.d0/pi)* &
     CGCOEFF(J1+1,0,J2,0,L,0)*CGCOEFF(J1,M1,J2,M2,L,M)* &
