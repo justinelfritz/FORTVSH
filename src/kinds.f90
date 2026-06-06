@@ -3,7 +3,8 @@
 
 MODULE KINDS
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: sp, dp, qp, i1, i2, i4, i8
 
   !> Single precision real numbers, 6 digits, range 10⁻³⁷ to 10³⁷-1; 32 bits
   integer, parameter :: sp = selected_real_kind(6, 37)

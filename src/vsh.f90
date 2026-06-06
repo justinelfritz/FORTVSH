@@ -6,6 +6,29 @@ MODULE VSH
 USE KINDS
 USE GLOBALS
 IMPLICIT NONE
+PRIVATE
+PUBLIC :: &
+  ! Legendre polynomials and associated Legendre functions
+  LEGENDRE, DDX_LEGENDRE, &
+  ASSOC_LEGENDRE, DDX_ASSOC_LEGENDRE, &
+  ASSOC_LEGENDRE_ALL, DDX_ASSOC_LEGENDRE_ALL, &
+  ASSOC_LEGENDRE_NORM_ALL, DDX_ASSOC_LEGENDRE_NORM_ALL, &
+  ! Index helpers and quadrature
+  PLM_INDEX, YLM_INDEX, LOG_FACT, SHGLQ, &
+  ! Scalar spherical harmonics
+  SSH, SSH_ALL, &
+  ! SSH gradient and L operator
+  GRAD_SSH, GRAD_SSH_ALL, L_SSH, L_SSH_ALL, &
+  ! Polar vector spherical harmonics
+  PVSH_RAD, PVSH_RAD_ALL, &
+  PVSH_TOR, PVSH_TOR_ALL, &
+  PVSH_POL, PVSH_POL_ALL, &
+  ! Standard vector spherical harmonics
+  VSH_TOR, VSH_TOR_ALL, &
+  VSH_POL_DN, VSH_POL_DN_ALL, &
+  VSH_POL_UP, VSH_POL_UP_ALL, &
+  ! Coupling coefficients and integrals
+  CGCOEFF, SYMBOL3J, DOT, GWI, GWJ
 
 CONTAINS
 !     Compute Factorial k! for k>=0
