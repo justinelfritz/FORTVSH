@@ -1,0 +1,130 @@
+cmake_minimum_required(VERSION 3.14)
+project(FORTVSH
+  VERSION   0.1.0
+  LANGUAGES Fortran C
+)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+include(CTest)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+add_compile_options(-O3)
+
+option(VSH_BUILD_SHARED  "Build shared library (libvsh.so) in addition to static" OFF)
+option(VSH_INSTALL_TESTS "Install the vsh_test executable"                         OFF)
+
+# ── Generate version Fortran module ──────────────────────────────────────────
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/vsh_version.f90.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/src/vsh_version.f90"
+  @ONLY
+)
+
+# ── Library object compilation (compile once for both static + shared) ────────
+add_library(vsh_objects OBJECT
+  src/kinds.f90
+  src/globals.f90
+  src/vsh.f90
+  "${CMAKE_CURRENT_BINARY_DIR}/src/vsh_version.f90"
+)
+set_target_properties(vsh_objects PROPERTIES
+  POSITION_INDEPENDENT_CODE ON
+  Fortran_MODULE_DIRECTORY  "${CMAKE_CURRENT_BINARY_DIR}/mod"
+)
+
+# ── Static library (always built) ─────────────────────────────────────────────
+add_library(vsh STATIC $<TARGET_OBJECTS:vsh_objects>)
+add_library(FORTVSH::vsh ALIAS vsh)
+# Propagate the module directory to consumers (don't link vsh_objects as a
+# PUBLIC dependency — OBJECT libraries cannot be exported)
+target_include_directories(vsh INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/vsh>
+)
+set_target_properties(vsh PROPERTIES OUTPUT_NAME vsh)
+
+# ── Shared library (opt-in) ───────────────────────────────────────────────────
+if(VSH_BUILD_SHARED)
+  add_library(vsh_shared SHARED $<TARGET_OBJECTS:vsh_objects>)
+  add_library(FORTVSH::vsh_shared ALIAS vsh_shared)
+  target_include_directories(vsh_shared INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/vsh>
+  )
+  set_target_properties(vsh_shared PROPERTIES
+    OUTPUT_NAME vsh
+    VERSION     ${PROJECT_VERSION}
+    SOVERSION   ${PROJECT_VERSION_MAJOR}
+  )
+endif()
+
+# ── Test executable ───────────────────────────────────────────────────────────
+add_executable(vsh_test src/tests.f90 src/main.f90)
+target_link_libraries(vsh_test PRIVATE vsh)
+set_target_properties(vsh_test PROPERTIES
+  Fortran_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/obj"
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+)
+
+add_test(NAME vsh_validation
+  COMMAND vsh_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+# ── FortranCInterface: name-mangling header for future C/Python bindings ──────
+include(FortranCInterface)
+FortranCInterface_HEADER(
+  "${CMAKE_CURRENT_BINARY_DIR}/FortranCInterface.h"
+  MACRO_NAMESPACE "VSH_"
+)
+
+# ── pkg-config ────────────────────────────────────────────────────────────────
+configure_file(fortvsh.pc.in "${CMAKE_CURRENT_BINARY_DIR}/fortvsh.pc" @ONLY)
+
+# ── CMake package config (enables find_package(FORTVSH)) ─────────────────────
+configure_package_config_file(
+  "cmake/fortvsh-config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/fortvsh-config.cmake"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/FORTVSH"
+)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/fortvsh-config-version.cmake"
+  VERSION     ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+# ── Install rules ─────────────────────────────────────────────────────────────
+install(TARGETS vsh
+  EXPORT  fortvsh-targets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+if(VSH_BUILD_SHARED)
+  install(TARGETS vsh_shared
+    EXPORT  fortvsh-targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  )
+endif()
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/mod/"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/vsh"
+  FILES_MATCHING PATTERN "*.mod"
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/fortvsh.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+)
+install(EXPORT fortvsh-targets
+  FILE      fortvsh-targets.cmake
+  NAMESPACE FORTVSH::
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/FORTVSH"
+)
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/fortvsh-config.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/fortvsh-config-version.cmake"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/FORTVSH"
+)
+if(VSH_INSTALL_TESTS)
+  install(TARGETS vsh_test RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
