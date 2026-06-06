@@ -3,8 +3,8 @@
 !     angular functions
 
 MODULE VSH
-USE KINDS
-USE GLOBALS
+USE KINDS,   ONLY: dp, i4
+USE GLOBALS, ONLY: pi, j
 IMPLICIT NONE
 PRIVATE
 PUBLIC :: &
