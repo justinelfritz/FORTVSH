@@ -1,0 +1,21 @@
+makefile
+*.o
+obj/*
+*.exe
+src/*.mod
+out/*
+
+# CMake build artefacts
+/build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+/mod/
+/lib/
+
+
+
+
+
+
